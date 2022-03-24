@@ -1,0 +1,7 @@
+{
+  "original_location": "data/raw/abt_buy/",
+  "stand_location": "data/standardized/abt_buy/",
+  "relevant_columns": [
+    "name", "description"
+  ]
+}

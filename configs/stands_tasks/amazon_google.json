@@ -1,0 +1,7 @@
+{
+  "original_location": "data/raw/amazon_google/",
+  "stand_location": "data/standardized/amazon_google/",
+  "relevant_columns": [
+    "title", "manufacturer"
+  ]
+}
