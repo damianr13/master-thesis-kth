@@ -1,7 +1,12 @@
 {
   "original_location": "data/raw/abt_buy/",
-  "stand_location": "data/standardized/abt_buy/",
+  "target_location": "data/standardized/abt_buy/",
   "relevant_columns": [
     "name", "description"
-  ]
+  ],
+  "split_files": {
+    "train.csv": "train.csv",
+    "test.csv": "test.csv",
+    "valid.csv": "valid.csv"
+  }
 }

@@ -1,0 +1,9 @@
+{
+  "original_location": "data/standardized/abt_buy/",
+  "target_location": "data/preprocessed/word_cooc/abt_buy/",
+  "split_files": {
+    "train.csv": "train.csv",
+    "test.csv": "test.csv",
+    "valid.csv": "valid.csv"
+  }
+}
