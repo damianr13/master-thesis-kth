@@ -1,17 +1,17 @@
+import functools
+from abc import ABC, abstractmethod
 from typing import List, Dict
 
 import numpy as np
 import pandas as pd
-from sklearn.metrics import f1_score
-import wandb
 import xgboost as xgb
-import functools
 from numpy import ndarray
 from pandas import DataFrame
 from pydantic import BaseModel
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import f1_score
 from sklearn.model_selection import PredefinedSplit, RandomizedSearchCV
 from sklearn.naive_bayes import BernoulliNB
 from sklearn.svm import LinearSVC
@@ -48,7 +48,17 @@ class WordCoocConfig(BaseModel):
     classifiers: List[WordCoocClassifierConfig]
 
 
-class WordCoocPredictor:
+class BasePredictor(ABC):
+    @abstractmethod
+    def train(self, train_set: DataFrame, valid_set: DataFrame) -> None:
+        pass
+
+    @abstractmethod
+    def test(self, test_set) -> float:
+        pass
+
+
+class WordCoocPredictor(BasePredictor):
     def __init__(self, config_path: str):
         self.config: WordCoocConfig = utils.load_as_object(config_path, WordCoocConfig.parse_obj)
         self.classifier = self.config.classifiers[0].generate_model()
@@ -106,26 +116,11 @@ class WordCoocPredictor:
                 best_f1 = f1
                 self.classifier = model_with_params
 
-    def test(self, df: DataFrame) -> None:
+    def test(self, df: DataFrame) -> float:
         features = self.__extract_word_cooc(df)
-        try:
-            prediction_proba = self.classifier.predict_proba(features)
-            prediction = [1 if x > 0.5 else 0 for x in prediction_proba]
-        except AttributeError:
-            prediction = prediction_proba = self.classifier.predict(features)
-
-        wandb.sklearn.plot_classifier(self.classifier,
-                                      self.train_features,
-                                      features,
-                                      self.train_labels,
-                                      df['label'],
-                                      prediction,
-                                      prediction_proba,
-                                      ['no_match', 'match'], model_name="Word Cooc", feature_names=None)
-
+        prediction = self.classifier.predict(features)
         f1 = f1_score(df['label'], prediction)
-        print(f'Resulting f1 score: {f1}')
-        wandb.log({'f1': f1})
+        return f1
 
     def predict(self, df: DataFrame) -> List:
         features = self.__extract_word_cooc(df)

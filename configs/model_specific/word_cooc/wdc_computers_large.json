@@ -1,0 +1,9 @@
+{
+  "original_location": "data/standardized/wdc_computers_large/",
+  "target_location": "data/preprocessed/word_cooc/wdc_computers_large/",
+  "split_files": {
+    "train.csv": "train.csv",
+    "test.csv": "test.csv",
+    "valid.csv": "valid.csv"
+  }
+}

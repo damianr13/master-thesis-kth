@@ -2,11 +2,12 @@
   "original_location": "data/raw/wdc-lspc/",
   "target_location": "data/standardized/wdc_computers_large/",
   "relevant_columns": [
-    "title", "manufacturer"
+    "title", "description", "specTableContent", "category"
   ],
   "split_files": {
-    "train.csv": "train.csv",
-    "test.csv": "test.csv",
-    "valid.csv": "valid.csv"
-  }
+    "training-sets/computers_train_large.json.gz": "train.csv@valid.csv",
+    "gold-standards/computers_gs.json.gz": "test.csv"
+  },
+  "train_valid_split_file": "validation-sets/computers_valid_large.csv",
+  "intermediate_train_valid_name": "train.csv@valid.csv"
 }

@@ -9,11 +9,16 @@ class BasePreprocConfig(BaseModel):
     split_files: Dict[str, str]
 
 
-class StandardizerConfig(BasePreprocConfig):
+class RelationalStandardizerConfig(BasePreprocConfig):
     """
     Defines the structure of a configurations file
     """
     relevant_columns: List[str]
+
+
+class WDCStandardizerConfig(RelationalStandardizerConfig):
+    train_valid_split_file: str
+    intermediate_train_valid_name: str
 
 
 class ModelSpecificPreprocessConfig(BasePreprocConfig):
