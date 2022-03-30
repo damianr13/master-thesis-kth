@@ -4,8 +4,8 @@ from typing import Dict
 import pandas as pd
 from pandas import DataFrame
 
-from radamian.preprocess.configs import RelationalStandardizerConfig, WDCStandardizerConfig
-from radamian.preprocess.definitions import BasePreprocessor
+from src.preprocess.configs import RelationalStandardizerConfig, WDCStandardizerConfig
+from src.preprocess.definitions import BasePreprocessor
 
 
 class RelationalDatasetStandardizer(BasePreprocessor[RelationalStandardizerConfig]):

@@ -17,7 +17,7 @@ from sklearn.naive_bayes import BernoulliNB
 from sklearn.svm import LinearSVC
 from sklearn.tree import DecisionTreeClassifier
 
-from radamian import utils
+from src import utils
 
 
 class WordCoocClassifierConfig(BaseModel):

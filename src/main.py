@@ -4,10 +4,10 @@ from typing import Callable
 import pandas as pd
 import wandb
 
-from radamian.predictors.base import WordCoocPredictor, BasePredictor
-from radamian.preprocess.definitions import BasePreprocessor
-from radamian.preprocess.model_specific import WordCoocPreprocessor
-from radamian.preprocess.standardize import RelationalDatasetStandardizer, WDCDatasetStandardizer
+from src.predictors.base import WordCoocPredictor, BasePredictor
+from src.preprocess.definitions import BasePreprocessor
+from src.preprocess.model_specific import WordCoocPreprocessor
+from src.preprocess.standardize import RelationalDatasetStandardizer, WDCDatasetStandardizer
 
 
 def run_pipeline(stand_config: str, preproc_config: str, predictor_config: str,

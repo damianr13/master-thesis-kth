@@ -6,8 +6,8 @@ from typing import Callable, Generic, TypeVar, Dict
 import pandas as pd
 from pandas import DataFrame
 
-from radamian import utils
-from radamian.preprocess.configs import BasePreprocConfig
+from src import utils
+from src.preprocess.configs import BasePreprocConfig
 
 T = TypeVar("T", bound=BasePreprocConfig)
 

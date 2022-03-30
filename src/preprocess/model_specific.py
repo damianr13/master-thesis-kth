@@ -1,8 +1,8 @@
 import pandas as pd
 from pandas import DataFrame
 
-from radamian.preprocess.configs import ModelSpecificPreprocessConfig
-from radamian.preprocess.definitions import BasePreprocessor
+from src.preprocess.configs import ModelSpecificPreprocessConfig
+from src.preprocess.definitions import BasePreprocessor
 
 
 class WordCoocPreprocessor(BasePreprocessor):

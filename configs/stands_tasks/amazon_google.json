@@ -1,6 +1,6 @@
 {
   "original_location": "data/raw/amazon_google/",
-  "target_location": "data/standardized/amazon_google/",
+  "target_location": "data/interim/amazon_google/",
   "relevant_columns": [
     "title", "manufacturer"
   ],
