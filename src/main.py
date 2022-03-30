@@ -4,7 +4,8 @@ from typing import Callable
 import pandas as pd
 import wandb
 
-from src.predictors.base import WordCoocPredictor, BasePredictor
+from src.predictors.base import BasePredictor
+from src.predictors.word_cooc import WordCoocPredictor
 from src.preprocess.definitions import BasePreprocessor
 from src.preprocess.model_specific import WordCoocPreprocessor
 from src.preprocess.standardize import RelationalDatasetStandardizer, WDCDatasetStandardizer
