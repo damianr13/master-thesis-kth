@@ -1,5 +1,5 @@
 import functools
-from typing import List, Dict
+from typing import List, Dict, Union
 
 import numpy as np
 import pandas as pd
@@ -7,6 +7,7 @@ import xgboost as xgb
 from numpy import ndarray
 from pandas import DataFrame
 from pydantic import BaseModel
+from sklearn.base import ClassifierMixin
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.linear_model import LogisticRegression
@@ -49,7 +50,11 @@ class WordCoocConfig(BaseModel):
 
 
 class WordCoocPredictor(BasePredictor):
+    config: WordCoocConfig
+    classifier: Union[ClassifierMixin, RandomizedSearchCV]
+
     def __init__(self, config_path: str):
+        super(WordCoocPredictor, self).__init__("word_cooc")
         self.config: WordCoocConfig = utils.load_as_object(config_path, WordCoocConfig.parse_obj)
         self.classifier = self.config.classifiers[0].generate_model()
         self.count_model = CountVectorizer(ngram_range=(1, 1), binary=True, min_df=2)
