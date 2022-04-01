@@ -1,13 +1,13 @@
 {
   "original_location": "data/interim/abt_buy/",
-  "target_location": "data/processed/word_cooc/abt_buy/",
+  "target_location": "data/processed/contrastive/abt_buy/",
   "split_files": {
     "train.csv": "train.csv",
     "test.csv": "test.csv",
     "valid.csv": "valid.csv"
   },
   "relevant_columns": [
-    "name", "description"
+    "cluster", "name", "description"
   ],
   "left_id_column": "left_id",
   "right_id_column": "right_id"

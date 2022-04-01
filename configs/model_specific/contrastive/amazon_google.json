@@ -1,6 +1,6 @@
 {
   "original_location": "data/interim/amazon_google/",
-  "target_location": "data/processed/word_cooc/amazon_google/",
+  "target_location": "data/processed/contrastive/amazon_google/",
   "split_files": {
     "train.csv": "train.csv",
     "test.csv": "test.csv",
