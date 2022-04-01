@@ -1,6 +1,5 @@
 import os
 from abc import ABC
-from abc import abstractmethod
 from typing import Callable, Generic, TypeVar, Dict
 
 import pandas as pd
@@ -15,6 +14,12 @@ T = TypeVar("T", bound=BasePreprocConfig)
 class BasePreprocessor(Generic[T], ABC):
     def __init__(self, config_path: str, config_instantiator: Callable[[Dict], T]):
         self.config = utils.load_as_object(config_path, config_instantiator)
+
+    def _extract_relevant_columns(self, df: DataFrame) -> DataFrame:
+        relevant_column_names = [f'left_{c}' for c in self.config.relevant_columns] + \
+                                [f'right_{c}' for c in self.config.relevant_columns] + \
+                                ['label']
+        return df[relevant_column_names]
 
     def _preprocess_one(self, df: DataFrame) -> DataFrame:
         return df
@@ -37,7 +42,7 @@ class BasePreprocessor(Generic[T], ABC):
 
         df_for_location = self._preprocess_all(df_for_location)
         for location, df in df_for_location.items():
-            df.to_csv(os.path.join(target_location, location))
+            self._extract_relevant_columns(df).to_csv(os.path.join(target_location, location))
 
     @staticmethod
     def read_one_split_file(path):

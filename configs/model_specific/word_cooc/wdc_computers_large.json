@@ -5,5 +5,8 @@
     "train.csv": "train.csv",
     "test.csv": "test.csv",
     "valid.csv": "valid.csv"
-  }
+  },
+  "relevant_columns": [
+    "title", "description", "specTableContent", "category"
+  ]
 }

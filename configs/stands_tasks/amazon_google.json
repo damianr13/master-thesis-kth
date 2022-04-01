@@ -2,7 +2,7 @@
   "original_location": "data/raw/amazon_google/",
   "target_location": "data/interim/amazon_google/",
   "relevant_columns": [
-    "title", "manufacturer"
+    "id", "title", "manufacturer"
   ],
   "split_files": {
     "train.csv": "train.csv",

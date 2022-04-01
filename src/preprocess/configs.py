@@ -7,20 +7,19 @@ class BasePreprocConfig(BaseModel):
     original_location: str
     target_location: str
     split_files: Dict[str, str]
-
-
-class RelationalStandardizerConfig(BasePreprocConfig):
-    """
-    Defines the structure of a configurations file
-    """
     relevant_columns: List[str]
 
 
-class WDCStandardizerConfig(RelationalStandardizerConfig):
+class WDCStandardizerConfig(BasePreprocConfig):
     train_valid_split_file: str
     intermediate_train_valid_name: str
 
 
 class ModelSpecificPreprocessConfig(BasePreprocConfig):
-    def __init__(self, *args, **kwargs):
-        super(ModelSpecificPreprocessConfig, self).__init__(*args, **kwargs)
+    def __init__(self, **data):
+        super(ModelSpecificPreprocessConfig, self).__init__(**data)
+
+
+class ContrastivePreprocessConfig(BasePreprocConfig):
+    left_id_column: str
+    right_id_column: str

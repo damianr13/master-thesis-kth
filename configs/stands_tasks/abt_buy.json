@@ -2,7 +2,7 @@
   "original_location": "data/raw/abt_buy/",
   "target_location": "data/interim/abt_buy/",
   "relevant_columns": [
-    "name", "description"
+    "id", "name", "description"
   ],
   "split_files": {
     "train.csv": "train.csv",

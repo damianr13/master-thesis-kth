@@ -2,7 +2,7 @@
   "original_location": "data/raw/wdc-lspc/",
   "target_location": "data/interim/wdc_computers_large/",
   "relevant_columns": [
-    "title", "description", "specTableContent", "category"
+    "id", "title", "description", "specTableContent", "category"
   ],
   "split_files": {
     "training-sets/computers_train_large.json.gz": "train.csv@valid.csv",

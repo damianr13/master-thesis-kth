@@ -22,5 +22,5 @@ class WordCoocPreprocessor(BasePreprocessor):
         result['rtext'] = pd.Series(df[right_columns].fillna('').values.tolist()).str.join(' ')
         result['label'] = df['label']
 
-        return result
+        return super()._preprocess_one(result)
 

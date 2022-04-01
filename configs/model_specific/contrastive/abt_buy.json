@@ -8,5 +8,7 @@
   },
   "relevant_columns": [
     "name", "description"
-  ]
+  ],
+  "left_id_column": "left_id",
+  "right_id_column": "right_id"
 }
