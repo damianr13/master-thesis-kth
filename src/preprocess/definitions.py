@@ -15,11 +15,14 @@ class BasePreprocessor(Generic[T], ABC):
     def __init__(self, config_path: str, config_instantiator: Callable[[Dict], T]):
         self.config = utils.load_as_object(config_path, config_instantiator)
 
-    def _extract_relevant_columns(self, df: DataFrame) -> DataFrame:
+    def _extract_relevant_columns_one(self, df: DataFrame) -> DataFrame:
         relevant_column_names = [f'left_{c}' for c in self.config.relevant_columns] + \
                                 [f'right_{c}' for c in self.config.relevant_columns] + \
                                 ['label']
         return df[relevant_column_names]
+
+    def _extract_relevant_columns(self, df_for_location: Dict[str, DataFrame]) -> Dict[str, DataFrame]:
+        return {location: self._extract_relevant_columns_one(df) for location, df in df_for_location.items()}
 
     def _preprocess_one(self, df: DataFrame) -> DataFrame:
         return df
@@ -41,9 +44,19 @@ class BasePreprocessor(Generic[T], ABC):
             df_for_location[target] = part_stand
 
         df_for_location = self._preprocess_all(df_for_location)
+        df_for_location = self._extract_relevant_columns(df_for_location)
+
         for location, df in df_for_location.items():
-            self._extract_relevant_columns(df).to_csv(os.path.join(target_location, location))
+            df.to_csv(os.path.join(target_location, location))
 
     @staticmethod
     def read_one_split_file(path):
         return pd.read_csv(path)
+
+
+class NoColumnSelectionBasePreprocessor(Generic[T], BasePreprocessor[T]):
+    def __init__(self, config_path: str, config_instantiator: Callable[[Dict], T]) -> None:
+        super(NoColumnSelectionBasePreprocessor, self).__init__(config_path, config_instantiator)
+
+    def _extract_relevant_columns_one(self, df: DataFrame) -> DataFrame:
+        return df  # no column selection

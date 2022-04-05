@@ -5,10 +5,10 @@ import pandas as pd
 import wandb
 
 from src.predictors.base import BasePredictor
-from src.predictors.word_cooc import WordCoocPredictor
+from src.predictors.contrastive import ContrastivePretrainDataset
 from src.predictors.dummy import AllMatchPredictor, NoMatchPredictor, BalancedPredictor, ClassDistributionAwarePredictor
+from src.predictors.word_cooc import WordCoocPredictor
 from src.preprocess.definitions import BasePreprocessor
-from src.preprocess.model_specific.contrastive import ContrastivePreprocessor
 from src.preprocess.model_specific.word_cooc import WordCoocPreprocessor
 from src.preprocess.standardize import RelationalDatasetStandardizer, WDCDatasetStandardizer
 
@@ -82,12 +82,14 @@ def main():
     wandb.log({"f1_scores": f1_table})
 
 
-def testing_stuff():
-    RelationalDatasetStandardizer(os.path.join('configs', 'stands_tasks', 'abt_buy.json')).preprocess()
-    ContrastivePreprocessor(os.path.join('configs', 'model_specific', 'contrastive', 'abt_buy.json')).preprocess()
+def stuff():
+    pretrain_set = pd.read_csv(os.path.join('data', 'processed', 'contrastive', 'abt_buy', 'pretrain.csv'))
+    dataset = ContrastivePretrainDataset(pretrain_df=pretrain_set)
+
+    print(f'Dataset length {len(dataset)}')
     print('Finished')
 
 
 if __name__ == "__main__":
     print(os.getcwd())
-    testing_stuff()
+    stuff()

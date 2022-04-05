@@ -23,3 +23,7 @@ class ModelSpecificPreprocessConfig(BasePreprocConfig):
 class ContrastivePreprocessConfig(BasePreprocConfig):
     left_id_column: str
     right_id_column: str
+    label_column: str
+
+    pretrain_used_datasets: List[str]
+    pretrain_sample: float
