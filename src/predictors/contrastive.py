@@ -1,12 +1,14 @@
 import random
+from abc import ABC
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 
 import pandas as pd
-import torch.nn
+import torch
 from pandas import DataFrame
 from sklearn.metrics import f1_score
 from torch import Tensor
+from torch import nn
 from torch.utils.data import Dataset
 from torch.utils.data.dataset import T_co
 from transformers import AutoTokenizer, AutoModel, Trainer, TrainingArguments, PreTrainedTokenizerBase
@@ -74,26 +76,34 @@ class ContrastivePretrainDataset(Dataset):
         return item, positive
 
 
+class ContrastiveClassificationDataset(Dataset):
+    def __init__(self, df: DataFrame, tokenizer='huawei-noah/TinyBERT_General_4L_312D', max_length=128):
+        self.max_length = max_length
+        self.tokenizer = AutoTokenizer.from_pretrained(tokenizer, additional_special_tokens=('[COL]', '[VAL]'))
+        self.data = df
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        example = self.data[idx].copy()
+        return example
+
+
 @dataclass
-class ContrastiveDataCollator:
+class ContrastiveDataCollator(ABC):
     tokenizer: PreTrainedTokenizerBase
     max_length: int = 128
 
-    def __tokenize_features(self, features: List[str]):
+    def tokenize_features(self, features: List[str]):
         return self.tokenizer(features,
                               padding=True,
                               truncation=True,
                               max_length=self.max_length,
                               return_tensors="pt")
 
-    def __call__(self, x):
-        features_left = [v[0]['text'] for v in x]
-        features_right = [v[1]['text'] for v in x]
-
-        labels = [v[0]['cluster_id'] for v in x]
-        batch_left = self.__tokenize_features(features_left)
-        batch_right = self.__tokenize_features(features_right)
-
+    @staticmethod
+    def collate_pair(batch_left, batch_right, labels):
         return {
             'input_ids_left': batch_left['input_ids'],
             'attention_mask_left': batch_left['attention_mask'],
@@ -103,7 +113,33 @@ class ContrastiveDataCollator:
         }
 
 
-class SupConLoss(torch.nn.Module):
+@dataclass
+class ContrastivePretrainingDataCollator(ContrastiveDataCollator):
+    def __call__(self, x):
+        features_left = [v[0]['text'] for v in x]
+        features_right = [v[1]['text'] for v in x]
+
+        labels = [v[0]['cluster_id'] for v in x]
+        batch_left = self.tokenize_features(features_left)
+        batch_right = self.tokenize_features(features_right)
+
+        return self.collate_pair(batch_left, batch_right, labels)
+
+
+@dataclass
+class ContrastiveClassifierDataCollator(ContrastiveDataCollator):
+    def __call__(self, x):
+        features_left = [v['left_text'] for v in x]
+        features_right = [v['right_text'] for v in x]
+
+        labels = [v['label'] for v in x]
+        batch_left = self.tokenize_features(features_left)
+        batch_right = self.tokenize_features(features_right)
+
+        return self.collate_pair(batch_left, batch_right, labels)
+
+
+class SupConLoss(nn.Module):
     def __init__(self, temperature=0.07):
         super().__init__()
         self.temperature = temperature
@@ -140,7 +176,20 @@ class SupConLoss(torch.nn.Module):
         return loss
 
 
-class ContrastivePretrainModel(torch.nn.Module):
+class AbstractContrastiveModel(nn.Module, ABC):
+    transformer: nn.Module
+
+    def apply_transformer(self, input_ids_left, attention_mask_left, input_ids_right, attention_mask_right):
+        output_left = self.transformer(input_ids_left, attention_mask_left)
+        output_right = self.transformer(input_ids_right, attention_mask_right)
+
+        output_left = self.mean_pooling(output_left, attention_mask_left)
+        output_right = self.mean_pooling(output_right, attention_mask_right)
+
+        return output_left, output_right
+
+
+class ContrastivePretrainModel(AbstractContrastiveModel):
     def __init__(self, len_tokenizer: int, model: str = 'huawei-noah/TinyBERT_General_4L_312D'):
         super().__init__()
         self.transformer = AutoModel.from_pretrained(model)
@@ -149,11 +198,8 @@ class ContrastivePretrainModel(torch.nn.Module):
         self.criterion = SupConLoss()
 
     def forward(self, input_ids_left, attention_mask_left, labels, input_ids_right, attention_mask_right):
-        output_left = self.transformer(input_ids_left, attention_mask_left)
-        output_right = self.transformer(input_ids_right, attention_mask_right)
-
-        output_left = self.mean_pooling(output_left, attention_mask_left)
-        output_right = self.mean_pooling(output_right, attention_mask_right)
+        output_left, output_right = self.apply_transformer(input_ids_left, attention_mask_left,
+                                                           input_ids_right, attention_mask_right)
 
         output = torch.cat((output_left.unsqueeze(1), output_right.unsqueeze(1)), 1)
 
@@ -166,7 +212,59 @@ class ContrastivePretrainModel(torch.nn.Module):
         return torch.sum(token_embeddings * input_mask_expanded, 1) / torch.clamp(input_mask_expanded.sum(1), min=1e-9)
 
 
+class ContrastiveClassifierHead(nn.Module):
+    def __init__(self, hidden_size=128):
+        super().__init__()
+        self.proj = nn.Sequential(
+            nn.Linear(hidden_size, hidden_size),
+            nn.ReLU(),
+            nn.Linear(hidden_size, hidden_size)
+        )
+
+    def forward(self, x):
+        return self.proj(x)
+
+
+class ContrastiveClassifierModel(AbstractContrastiveModel):
+    def __init__(self, len_tokenizer,
+                 checkpoint_path: Optional[str] = None,
+                 existing_transformer: Optional[nn.Module] = None,
+                 model='huawei-noah/TinyBERT_General_4L_312D'):
+        super().__init__()
+
+        if existing_transformer:
+            self.transformer = existing_transformer
+        else:
+            self.transformer = AutoModel.from_pretrained(model)
+            self.transformer.resize_token_embeddings(len_tokenizer)
+
+        self.classification_head = ContrastiveClassifierHead()
+        self.criterion = nn.BCEWithLogitsLoss()
+
+        if checkpoint_path:
+            self.load_state_dict(torch.load(checkpoint_path), strict=False)
+
+    def forward(self, input_ids_left, attention_mask_left, labels, input_ids_right, attention_mask_right):
+        output_left, output_right = self.apply_transformer(input_ids_left, attention_mask_left,
+                                                           input_ids_right, attention_mask_right)
+
+        output = torch.cat((
+            output_left, output_right,
+            torch.abs(output_left - output_right),
+            output_left * output_right), -1)
+
+        projected = self.classification_head(output)
+
+        loss = self.criterion(projected.view(-1), labels.float())
+        projected = torch.sigmoid(projected)  # TODO: understand why we modify the projections after computing loss
+
+        return loss, projected
+
+
 class ContrastivePredictor(BasePredictor):
+    transformer: nn.Module
+    trainer: Trainer
+
     @staticmethod
     def compute_metrics(eval_pred):
         pred, labels = eval_pred
@@ -196,7 +294,7 @@ class ContrastivePredictor(BasePredictor):
                                           lr_scheduler_type="linear",
                                           save_strategy="epoch",
                                           logging_strategy="epoch")
-        collator = ContrastiveDataCollator(tokenizer=train_dataset.tokenizer)
+        collator = ContrastivePretrainingDataCollator(tokenizer=train_dataset.tokenizer)
 
         trainer = Trainer(model=model,
                           train_dataset=train_dataset,
@@ -205,9 +303,43 @@ class ContrastivePredictor(BasePredictor):
                           compute_metrics=self.compute_metrics)
 
         trainer.train()
+        self.trainer = trainer
 
     def train(self, train_set: DataFrame, valid_set: DataFrame) -> None:
-        pass
+        train_dataset = ContrastiveClassificationDataset(df=train_set)
+        eval_dataset = ContrastiveClassificationDataset(df=valid_set)
+        model = ContrastiveClassifierModel(len_tokenizer=(len(train_dataset.tokenizer)),
+                                           existing_transformer=self.transformer)
+        training_args = TrainingArguments(
+            output_dir='output',
+            per_device_train_batch_size=4,
+            learning_rate=1e-3,
+            warmup_ratio=0.05,
+            max_grad_norm=1.0,
+            weight_decay=0.01,
+            seed=42,
+            dataloader_num_workers=4,
+            disable_tqdm=True,
+            report_to=["none"],
+            lr_scheduler_type="linear",
+            save_strategy="epoch",
+            logging_strategy="epoch"
+        )
+        collator = ContrastiveClassifierDataCollator(tokenizer=train_dataset.tokenizer)
 
-    def test(self, test_set) -> float:
-        pass
+        trainer = Trainer(model=model,
+                          args=training_args,
+                          train_dataset=train_dataset,
+                          eval_dataset=eval_dataset,
+                          data_collator=collator,
+                          compute_metrics=self.compute_metrics)
+        trainer.train()
+        trainer.evaluate(metric_key_prefix="eval")
+        self.trainer = trainer
+
+    def test(self, test_set: DataFrame) -> float:
+        test_dataset = ContrastiveClassificationDataset(test_set)
+        predict_results = self.trainer.predict(test_dataset)
+
+        return predict_results.metrics['f1']
+
