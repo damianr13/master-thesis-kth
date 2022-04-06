@@ -86,7 +86,7 @@ class ContrastiveClassificationDataset(Dataset):
         return len(self.data)
 
     def __getitem__(self, idx):
-        example = self.data[idx].copy()
+        example = self.data.iloc[idx].copy()
         return example
 
 
@@ -173,7 +173,7 @@ class SupConLoss(nn.Module):
         loss = - (self.temperature / self.base_temperature) * mean_log_prob_pos
         loss = loss.view(contrast_count, batch_size).mean()
 
-        return loss
+        return loss,
 
 
 class AbstractContrastiveModel(nn.Module, ABC):
@@ -187,6 +187,12 @@ class AbstractContrastiveModel(nn.Module, ABC):
         output_right = self.mean_pooling(output_right, attention_mask_right)
 
         return output_left, output_right
+
+    @staticmethod
+    def mean_pooling(model_output, attention_mask):
+        token_embeddings = model_output.last_hidden_state  # output of the transformer encoder
+        input_mask_expanded = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
+        return torch.sum(token_embeddings * input_mask_expanded, 1) / torch.clamp(input_mask_expanded.sum(1), min=1e-9)
 
 
 class ContrastivePretrainModel(AbstractContrastiveModel):
@@ -205,20 +211,13 @@ class ContrastivePretrainModel(AbstractContrastiveModel):
 
         return self.criterion(output, labels)
 
-    @staticmethod
-    def mean_pooling(model_output, attention_mask):
-        token_embeddings = model_output.last_hidden_state  # output of the transformer encoder
-        input_mask_expanded = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
-        return torch.sum(token_embeddings * input_mask_expanded, 1) / torch.clamp(input_mask_expanded.sum(1), min=1e-9)
-
 
 class ContrastiveClassifierHead(nn.Module):
-    def __init__(self, hidden_size=128):
+    def __init__(self, hidden_size=1248, drop_out_probability: float = 0.5):
         super().__init__()
         self.proj = nn.Sequential(
-            nn.Linear(hidden_size, hidden_size),
-            nn.ReLU(),
-            nn.Linear(hidden_size, hidden_size)
+            nn.Dropout(p=drop_out_probability),
+            nn.Linear(hidden_size, 1)
         )
 
     def forward(self, x):
@@ -238,7 +237,8 @@ class ContrastiveClassifierModel(AbstractContrastiveModel):
             self.transformer = AutoModel.from_pretrained(model)
             self.transformer.resize_token_embeddings(len_tokenizer)
 
-        self.classification_head = ContrastiveClassifierHead()
+        self.classification_head = ContrastiveClassifierHead(
+            drop_out_probability=self.transformer.config.hidden_dropout_prob)
         self.criterion = nn.BCEWithLogitsLoss()
 
         if checkpoint_path:
@@ -256,13 +256,14 @@ class ContrastiveClassifierModel(AbstractContrastiveModel):
         projected = self.classification_head(output)
 
         loss = self.criterion(projected.view(-1), labels.float())
-        projected = torch.sigmoid(projected)  # TODO: understand why we modify the projections after computing loss
+        # it applies sigmoid after loss, because we use "logits" in the loss function
+        projected = torch.sigmoid(projected)
 
         return loss, projected
 
 
 class ContrastivePredictor(BasePredictor):
-    transformer: nn.Module
+    transformer: nn.Module = None
     trainer: Trainer
 
     @staticmethod
@@ -284,7 +285,7 @@ class ContrastivePredictor(BasePredictor):
                                           per_device_train_batch_size=4,
                                           learning_rate=5e-05,
                                           warmup_ratio=0.05,
-                                          num_train_epochs=200,
+                                          num_train_epochs=2,
                                           weight_decay=0.01,
                                           max_grad_norm=1.0,
                                           # fp16=True,
@@ -303,7 +304,7 @@ class ContrastivePredictor(BasePredictor):
                           compute_metrics=self.compute_metrics)
 
         trainer.train()
-        self.trainer = trainer
+        self.transformer = model.transformer
 
     def train(self, train_set: DataFrame, valid_set: DataFrame) -> None:
         train_dataset = ContrastiveClassificationDataset(df=train_set)
@@ -315,6 +316,7 @@ class ContrastivePredictor(BasePredictor):
             per_device_train_batch_size=4,
             learning_rate=1e-3,
             warmup_ratio=0.05,
+            num_train_epochs=2,
             max_grad_norm=1.0,
             weight_decay=0.01,
             seed=42,
@@ -341,5 +343,5 @@ class ContrastivePredictor(BasePredictor):
         test_dataset = ContrastiveClassificationDataset(test_set)
         predict_results = self.trainer.predict(test_dataset)
 
-        return predict_results.metrics['f1']
+        return predict_results.metrics['test_f1']
 

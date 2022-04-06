@@ -84,9 +84,14 @@ def main():
 
 def stuff():
     pretrain_set = pd.read_csv(os.path.join('data', 'processed', 'contrastive', 'abt_buy', 'pretrain.csv'))
+    train_set = pd.read_csv(os.path.join('data', 'processed', 'contrastive', 'abt_buy', 'train.csv'))
+    valid_set = pd.read_csv(os.path.join('data', 'processed', 'contrastive', 'abt_buy', 'valid.csv'))
+    test_set = pd.read_csv(os.path.join('data', 'processed', 'contrastive', 'abt_buy', 'test.csv'))
 
     predictor = ContrastivePredictor(name='contrastive')
     predictor.pretrain(pretrain_set)
+    predictor.train(train_set, valid_set)
+    predictor.test(test_set)
 
     print('Finished')
 
