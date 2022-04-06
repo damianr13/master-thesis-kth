@@ -5,7 +5,7 @@ import pandas as pd
 import wandb
 
 from src.predictors.base import BasePredictor
-from src.predictors.contrastive import ContrastivePretrainDataset
+from src.predictors.contrastive import ContrastivePretrainDataset, ContrastivePredictor
 from src.predictors.dummy import AllMatchPredictor, NoMatchPredictor, BalancedPredictor, ClassDistributionAwarePredictor
 from src.predictors.word_cooc import WordCoocPredictor
 from src.preprocess.definitions import BasePreprocessor
@@ -84,9 +84,10 @@ def main():
 
 def stuff():
     pretrain_set = pd.read_csv(os.path.join('data', 'processed', 'contrastive', 'abt_buy', 'pretrain.csv'))
-    dataset = ContrastivePretrainDataset(pretrain_df=pretrain_set)
 
-    print(f'Dataset length {len(dataset)}')
+    predictor = ContrastivePredictor(name='contrastive')
+    predictor.pretrain(pretrain_set)
+
     print('Finished')
 
 

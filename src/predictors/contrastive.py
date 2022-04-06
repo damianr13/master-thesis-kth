@@ -1,13 +1,15 @@
 import random
 from dataclasses import dataclass
-from typing import Dict
+from typing import Dict, List, Optional
 
 import pandas as pd
 import torch.nn
 from pandas import DataFrame
+from sklearn.metrics import f1_score
+from torch import Tensor
 from torch.utils.data import Dataset
 from torch.utils.data.dataset import T_co
-from transformers import AutoTokenizer, AutoModel
+from transformers import AutoTokenizer, AutoModel, Trainer, TrainingArguments, PreTrainedTokenizerBase
 
 from src.predictors.base import BasePredictor
 
@@ -63,7 +65,7 @@ class ContrastivePretrainDataset(Dataset):
         return len(self.sources_map[self.source_list[0]])
 
     def __getitem__(self, index) -> T_co:
-        data_source_index = random.randint(0, len(self.source_list))
+        data_source_index = random.randint(0, len(self.source_list) - 1)
         data_source = self.sources_map[self.source_list[data_source_index]]
 
         item = data_source.iloc[index].copy()
@@ -74,8 +76,68 @@ class ContrastivePretrainDataset(Dataset):
 
 @dataclass
 class ContrastiveDataCollator:
+    tokenizer: PreTrainedTokenizerBase
+    max_length: int = 128
+
+    def __tokenize_features(self, features: List[str]):
+        return self.tokenizer(features,
+                              padding=True,
+                              truncation=True,
+                              max_length=self.max_length,
+                              return_tensors="pt")
+
     def __call__(self, x):
-        pass
+        features_left = [v[0]['text'] for v in x]
+        features_right = [v[1]['text'] for v in x]
+
+        labels = [v[0]['cluster_id'] for v in x]
+        batch_left = self.__tokenize_features(features_left)
+        batch_right = self.__tokenize_features(features_right)
+
+        return {
+            'input_ids_left': batch_left['input_ids'],
+            'attention_mask_left': batch_left['attention_mask'],
+            'labels': torch.LongTensor(labels),
+            'input_ids_right': batch_right['input_ids'],
+            'attention_mask_right': batch_right['attention_mask']
+        }
+
+
+class SupConLoss(torch.nn.Module):
+    def __init__(self, temperature=0.07):
+        super().__init__()
+        self.temperature = temperature
+        self.base_temperature = temperature
+
+    def forward(self, features: Tensor, labels: Optional[torch.LongTensor] = None, mask=None):
+        device = (torch.device('cuda') if features.is_cuda else torch.device('cpu'))
+
+        batch_size = features.shape[0]
+
+        labels = labels.contiguous().view(-1, 1)
+        mask = torch.eq(labels, labels.T).float().to(device)
+
+        contrast_count = features.shape[1]
+        contrast_feature = torch.cat(torch.unbind(features, dim=1), dim=0)
+
+        anchor_dot_contrast = torch.div(torch.matmul(contrast_feature, contrast_feature.T), self.temperature)
+        logits_max, _ = torch.max(anchor_dot_contrast, dim=1, keepdim=True)
+        logits = anchor_dot_contrast - logits_max.detach()
+        mask = mask.repeat(contrast_count, contrast_count)
+        logits_mask = torch.scatter(torch.ones_like(mask), 1,
+                                    torch.arange(batch_size * contrast_count).view(-1, 1).to(device), 0)
+
+        mask = mask * logits_mask
+
+        exp_logits = torch.exp(logits) * logits_mask
+        log_prob = logits - torch.log(exp_logits.sum(1, keepdim=True))
+
+        mean_log_prob_pos = (mask * log_prob).sum(1) / mask.sum(1)
+
+        loss = - (self.temperature / self.base_temperature) * mean_log_prob_pos
+        loss = loss.view(contrast_count, batch_size).mean()
+
+        return loss
 
 
 class ContrastivePretrainModel(torch.nn.Module):
@@ -84,7 +146,7 @@ class ContrastivePretrainModel(torch.nn.Module):
         self.transformer = AutoModel.from_pretrained(model)
         self.transformer.resize_token_embeddings(len_tokenizer)
 
-        self.criterion = None
+        self.criterion = SupConLoss()
 
     def forward(self, input_ids_left, attention_mask_left, labels, input_ids_right, attention_mask_right):
         output_left = self.transformer(input_ids_left, attention_mask_left)
@@ -105,10 +167,44 @@ class ContrastivePretrainModel(torch.nn.Module):
 
 
 class ContrastivePredictor(BasePredictor):
-    def pretrain(self, pretrain_set: DataFrame) -> None:
-        pretrain_dataset = None
+    @staticmethod
+    def compute_metrics(eval_pred):
+        pred, labels = eval_pred
+        pred[pred >= 0.5] = 1
+        pred[pred < 0.5] = 0
 
-        pass
+        pred = pred.reshape(-1)
+        labels = labels.reshape(-1)
+
+        f1 = f1_score(labels, pred, pos_label=1, average='binary')
+        return {'f1': f1}
+
+    def pretrain(self, pretrain_set: DataFrame) -> None:
+        train_dataset = ContrastivePretrainDataset(pretrain_df=pretrain_set)
+        model = ContrastivePretrainModel(len_tokenizer=len(train_dataset.tokenizer))
+        training_args = TrainingArguments(output_dir='output',
+                                          per_device_train_batch_size=4,
+                                          learning_rate=5e-05,
+                                          warmup_ratio=0.05,
+                                          num_train_epochs=200,
+                                          weight_decay=0.01,
+                                          max_grad_norm=1.0,
+                                          # fp16=True,
+                                          dataloader_num_workers=4,
+                                          disable_tqdm=True,
+                                          report_to=["none"],
+                                          lr_scheduler_type="linear",
+                                          save_strategy="epoch",
+                                          logging_strategy="epoch")
+        collator = ContrastiveDataCollator(tokenizer=train_dataset.tokenizer)
+
+        trainer = Trainer(model=model,
+                          train_dataset=train_dataset,
+                          args=training_args,
+                          data_collator=collator,
+                          compute_metrics=self.compute_metrics)
+
+        trainer.train()
 
     def train(self, train_set: DataFrame, valid_set: DataFrame) -> None:
         pass
