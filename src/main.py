@@ -10,6 +10,7 @@ from src.predictors.dummy import AllMatchPredictor, NoMatchPredictor, BalancedPr
 from src.predictors.word_cooc import WordCoocPredictor
 from src.preprocess.definitions import BasePreprocessor
 from src.preprocess.model_specific.word_cooc import WordCoocPreprocessor
+from src.preprocess.model_specific.contrastive import ContrastivePreprocessor
 from src.preprocess.standardize import RelationalDatasetStandardizer, WDCDatasetStandardizer
 
 
@@ -83,17 +84,22 @@ def main():
 
 
 def stuff():
+    wandb.init(project="master-thesis", entity="damianr13")
+    ContrastivePreprocessor(os.path.join('configs', 'model_specific', 'contrastive', 'abt_buy.json')).preprocess()
+    print("Preprocessed!")
+
     pretrain_set = pd.read_csv(os.path.join('data', 'processed', 'contrastive', 'abt_buy', 'pretrain.csv'))
     train_set = pd.read_csv(os.path.join('data', 'processed', 'contrastive', 'abt_buy', 'train.csv'))
     valid_set = pd.read_csv(os.path.join('data', 'processed', 'contrastive', 'abt_buy', 'valid.csv'))
     test_set = pd.read_csv(os.path.join('data', 'processed', 'contrastive', 'abt_buy', 'test.csv'))
 
-    predictor = ContrastivePredictor(name='contrastive')
+    predictor = ContrastivePredictor(config_path=os.path.join('configs', 'model_train', 'contrastive_frozen.json'))
     predictor.pretrain(pretrain_set)
     predictor.train(train_set, valid_set)
-    predictor.test(test_set)
+    print("Trained")
+    f1 = predictor.test(test_set)
 
-    print('Finished')
+    print(f'Finished with resulting f1 {f1}')
 
 
 if __name__ == "__main__":

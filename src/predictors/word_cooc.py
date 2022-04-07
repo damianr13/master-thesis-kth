@@ -61,8 +61,6 @@ class WordCoocPredictor(BasePredictor):
         self.train_features = []
         self.train_labels = []
 
-        self.words = []
-
     def __extract_word_cooc(self, df: DataFrame) -> ndarray:
         left_counts = self.count_model.transform(df['ltext'])
         right_counts = self.count_model.transform(df['rtext'])
