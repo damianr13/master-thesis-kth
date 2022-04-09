@@ -14,7 +14,8 @@ from src.predictors.dummy import AllMatchPredictor, NoMatchPredictor, BalancedPr
 from src.predictors.word_cooc import WordCoocPredictor
 from src.preprocess.definitions import BasePreprocessor
 from src.preprocess.model_specific.word_cooc import WordCoocPreprocessor
-from src.preprocess.model_specific.contrastive import ContrastivePreprocessor
+from src.preprocess.model_specific.contrastive import ContrastivePreprocessorUnknownClusters, ContrastivePreprocessor, \
+    ContrastivePreprocessorKnownClusters
 from src.preprocess.standardize import RelationalDatasetStandardizer, WDCDatasetStandardizer
 
 
@@ -88,24 +89,9 @@ def main():
 
 
 def stuff():
-    # ContrastivePreprocessor(os.path.join('configs', 'model_specific', 'contrastive', 'amazon_google.json')).preprocess()
-    print("Preprocessed!")
-
-    # pretrain_set = pd.read_csv(os.path.join('data', 'processed', 'contrastive', 'amazon_google', 'pretrain.csv'))
-    # train_set = pd.read_csv(os.path.join('data', 'processed', 'contrastive', 'amazon_google', 'train.csv'))
-    # valid_set = pd.read_csv(os.path.join('data', 'processed', 'contrastive', 'amazon_google', 'valid.csv'))
-    test_set = pd.read_csv(os.path.join('data', 'processed', 'contrastive', 'amazon_google', 'test.csv'))
-
-    predictor = ContrastivePredictor(config_path=os.path.join('configs', 'model_train', 'contrastive',
-                                                              'frozen_no-aug_amazon-google.json'),
-                                     report=True, seed=42)
-    predictor.load_trained(os.path.join("output", "contrastive_frozen_amazon-google", "train", "pytorch_model.bin"))
-    # predictor.pretrain(pretrain_set)
-    # predictor.train(train_set, valid_set)
-    print("Trained")
-    f1 = predictor.test(test_set)
-
-    print(f'Finished with resulting f1 {f1}')
+    WDCDatasetStandardizer(os.path.join('configs', 'stands_tasks', 'wdc_computers_large.json')).preprocess()
+    ContrastivePreprocessorKnownClusters(
+        os.path.join('configs', 'model_specific', 'contrastive', 'wdc_computers_large.json')).preprocess()
 
 
 def seed_all(seed: int):

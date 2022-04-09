@@ -1,0 +1,17 @@
+{
+  "original_location": "data/interim/wdc_computers_large/",
+  "target_location": "data/processed/contrastive/wdc_computers_large/",
+  "split_files": {
+    "train.csv": "train.csv",
+    "test.csv": "test.csv",
+    "valid.csv": "valid.csv"
+  },
+  "relevant_columns": [
+    "cluster_id", "title", "description", "specTableContent", "category"
+  ],
+  "left_id_column": "left_id",
+  "right_id_column": "right_id",
+  "pretrain_used_datasets": ["train.csv", "valid.csv"],
+  "pretrain_sample": 0.8,
+  "label_column": "label"
+}
