@@ -1,8 +1,9 @@
 {
   "frozen": true,
+  "dataset_name": "abt_buy",
   "pretrain_specific": {
     "learning_rate": 5e-5,
-    "batch_size": 256,
+    "batch_size": 128,
     "epochs": 200,
     "output": "output/contrastive_frozen/pretrain"
   },

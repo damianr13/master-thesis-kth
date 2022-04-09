@@ -5,6 +5,7 @@ from typing import Dict, List, Optional
 
 import pandas as pd
 import torch
+import wandb
 from pandas import DataFrame
 from pydantic import BaseModel
 from sklearn.metrics import f1_score
@@ -12,7 +13,7 @@ from torch import Tensor
 from torch import nn
 from torch.utils.data import Dataset
 from torch.utils.data.dataset import T_co
-from transformers import AutoTokenizer, AutoModel, Trainer, TrainingArguments, PreTrainedTokenizerBase
+from transformers import AutoTokenizer, AutoModel, Trainer, TrainingArguments, PreTrainedTokenizerBase, IntervalStrategy
 
 from src import utils
 from src.predictors.base import BasePredictor
@@ -28,6 +29,8 @@ class DeepLearningHyperparameters(BaseModel):
 class ContrastiveClassifierConfig(BaseModel):
     frozen: bool = False
     augment: bool = False
+    dataset_name: str = 'unknown'
+    transformer_name: str = 'distilbert-base-uncased'
 
     pretrain_specific: DeepLearningHyperparameters = DeepLearningHyperparameters()
     train_specific: DeepLearningHyperparameters = DeepLearningHyperparameters()
@@ -36,10 +39,10 @@ class ContrastiveClassifierConfig(BaseModel):
 class ContrastivePretrainDataset(Dataset):
 
     def __init__(self, pretrain_df: DataFrame,
-                 tokenizer_identifier: str = 'huawei-noah/TinyBERT_General_4L_312D',
+                 tokenizer: str,
                  max_length=128):
         self.max_length = max_length
-        self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_identifier,
+        self.tokenizer = AutoTokenizer.from_pretrained(tokenizer,
                                                        additional_special_tokens=('[COL]', '[VAL]'))
 
         self.sources_map = ContrastivePretrainDataset.__group_by_source(pretrain_df)
@@ -95,7 +98,7 @@ class ContrastivePretrainDataset(Dataset):
 
 
 class ContrastiveClassificationDataset(Dataset):
-    def __init__(self, df: DataFrame, tokenizer='huawei-noah/TinyBERT_General_4L_312D', max_length=128):
+    def __init__(self, df: DataFrame, tokenizer: str, max_length=128):
         self.max_length = max_length
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer, additional_special_tokens=('[COL]', '[VAL]'))
         self.data = df
@@ -163,7 +166,7 @@ class SupConLoss(nn.Module):
         self.temperature = temperature
         self.base_temperature = temperature
 
-    def forward(self, features: Tensor, labels: Optional[torch.LongTensor] = None, mask=None):
+    def forward(self, features: Tensor, labels: Optional[torch.LongTensor] = None):
         device = (torch.device('cuda') if features.is_cuda else torch.device('cpu'))
 
         batch_size = features.shape[0]
@@ -184,14 +187,15 @@ class SupConLoss(nn.Module):
         mask = mask * logits_mask
 
         exp_logits = torch.exp(logits) * logits_mask
-        log_prob = logits - torch.log(exp_logits.sum(1, keepdim=True))
+        safe_exp_sum = torch.add(exp_logits.sum(1, keepdim=True), 1e-10)  # hack to avoid the infinity issue
+        log_prob = logits - torch.log(safe_exp_sum)
 
         mean_log_prob_pos = (mask * log_prob).sum(1) / mask.sum(1)
 
         loss = - (self.temperature / self.base_temperature) * mean_log_prob_pos
         loss = loss.view(contrast_count, batch_size).mean()
 
-        return loss,
+        return loss
 
 
 class AbstractContrastiveModel(nn.Module, ABC):
@@ -214,7 +218,7 @@ class AbstractContrastiveModel(nn.Module, ABC):
 
 
 class ContrastivePretrainModel(AbstractContrastiveModel):
-    def __init__(self, len_tokenizer: int, model: str = 'huawei-noah/TinyBERT_General_4L_312D'):
+    def __init__(self, len_tokenizer: int, model: str):
         super().__init__()
         self.transformer = AutoModel.from_pretrained(model)
         self.transformer.resize_token_embeddings(len_tokenizer)
@@ -227,7 +231,7 @@ class ContrastivePretrainModel(AbstractContrastiveModel):
 
         output = torch.cat((output_left.unsqueeze(1), output_right.unsqueeze(1)), 1)
 
-        return self.criterion(output, labels)
+        return self.criterion(output, labels),
 
 
 class ContrastiveClassifierHead(nn.Module):
@@ -244,9 +248,9 @@ class ContrastiveClassifierHead(nn.Module):
 
 class ContrastiveClassifierModel(AbstractContrastiveModel):
     def __init__(self, len_tokenizer,
+                 model: str,
                  checkpoint_path: Optional[str] = None,
-                 existing_transformer: Optional[nn.Module] = None,
-                 model='huawei-noah/TinyBERT_General_4L_312D'):
+                 existing_transformer: Optional[nn.Module] = None):
         super().__init__()
 
         if existing_transformer:
@@ -284,10 +288,14 @@ class ContrastivePredictor(BasePredictor):
     transformer: nn.Module = None
     trainer: Trainer
 
-    def __init__(self, config_path: str):
+    def __init__(self, config_path: str, report: bool = False, seed: int = 42):
         super(ContrastivePredictor, self).__init__(name="contrastive")
         self.config: ContrastiveClassifierConfig = utils.load_as_object(
             config_path, ContrastiveClassifierConfig.parse_obj)
+
+        self.report = report
+        self.report_to = "wandb" if report else "none"
+        self.seed = seed
 
     @staticmethod
     def compute_metrics(eval_pred):
@@ -301,10 +309,29 @@ class ContrastivePredictor(BasePredictor):
         f1 = f1_score(labels, pred, pos_label=1, average='binary')
         return {'f1': f1}
 
+    def perform_training(self, trainer: Trainer, output: str, evaluate: bool = False):
+        run = None
+        if self.report:
+            run_config = self.config.dict()
+            run_config['current_target'] = 'pretrain'
+            run = wandb.init(project="master-thesis", entity="damianr13", config=run_config)
+
+        trainer.train()
+
+        if evaluate:
+            trainer.evaluate(metric_key_prefix="eval")
+
+        if output:
+            trainer.save_model(output)
+
+        if run:
+            run.finish()
+
     def pretrain(self, pretrain_set: DataFrame) -> None:
-        train_dataset = ContrastivePretrainDataset(pretrain_df=pretrain_set)
-        model = ContrastivePretrainModel(len_tokenizer=len(train_dataset.tokenizer))
+        train_dataset = ContrastivePretrainDataset(pretrain_df=pretrain_set, tokenizer=self.config.transformer_name)
+        model = ContrastivePretrainModel(len_tokenizer=len(train_dataset.tokenizer), model=self.config.transformer_name)
         training_args = TrainingArguments(output_dir=self.config.pretrain_specific.output,
+                                          seed=self.seed,
                                           per_device_train_batch_size=self.config.pretrain_specific.batch_size,
                                           learning_rate=self.config.pretrain_specific.learning_rate,
                                           warmup_ratio=0.05,
@@ -314,7 +341,8 @@ class ContrastivePredictor(BasePredictor):
                                           # fp16=True,
                                           dataloader_num_workers=4,
                                           disable_tqdm=True,
-                                          report_to=["wandb"],
+                                          report_to=[self.report_to],
+                                          save_strategy=IntervalStrategy.NO,
                                           lr_scheduler_type="linear",
                                           logging_strategy="epoch")
         collator = ContrastivePretrainingDataCollator(tokenizer=train_dataset.tokenizer)
@@ -325,7 +353,8 @@ class ContrastivePredictor(BasePredictor):
                           data_collator=collator,
                           compute_metrics=self.compute_metrics)
 
-        trainer.train()
+        self.perform_training(trainer, output=self.config.pretrain_specific.output)
+
         self.transformer = model.transformer
         if self.config.frozen:
             for param in self.transformer.parameters():
@@ -333,7 +362,8 @@ class ContrastivePredictor(BasePredictor):
 
     def load_pretrained(self, checkpoint_path: str):
         checkpoint = torch.load(checkpoint_path)
-        model = ContrastivePretrainModel(checkpoint['transformer.embeddings.word_embeddings.weight'].shape[0])
+        model = ContrastivePretrainModel(checkpoint['transformer.embeddings.word_embeddings.weight'].shape[0],
+                                         self.config.transformer_name)
         model.load_state_dict(checkpoint)
 
         self.transformer = model.transformer
@@ -341,11 +371,23 @@ class ContrastivePredictor(BasePredictor):
             for param in self.transformer.parameters():
                 param.requires_grad = False
 
+    def load_trained(self, checkpoint_path: str):
+        checkpoint = torch.load(checkpoint_path)
+        model = ContrastiveClassifierModel(checkpoint['transformer.embeddings.word_embeddings.weight'].shape[0],
+                                           model=self.config.transformer_name)
+        model.load_state_dict(checkpoint)
+
+        tokenizer = AutoTokenizer.from_pretrained(self.config.transformer_name,
+                                                  additional_special_tokens=('[COL]', '[VAL]'))
+        collator = ContrastiveClassifierDataCollator(tokenizer=tokenizer)
+        self.trainer = Trainer(model=model, data_collator=collator, compute_metrics=self.compute_metrics)
+
     def train(self, train_set: DataFrame, valid_set: DataFrame) -> None:
-        train_dataset = ContrastiveClassificationDataset(df=train_set)
-        eval_dataset = ContrastiveClassificationDataset(df=valid_set)
+        train_dataset = ContrastiveClassificationDataset(df=train_set, tokenizer=self.config.transformer_name)
+        eval_dataset = ContrastiveClassificationDataset(df=valid_set, tokenizer=self.config.transformer_name)
         model = ContrastiveClassifierModel(len_tokenizer=(len(train_dataset.tokenizer)),
-                                           existing_transformer=self.transformer)
+                                           existing_transformer=self.transformer,
+                                           model=self.config.transformer_name)
         training_args = TrainingArguments(
             output_dir=self.config.train_specific.output,
             per_device_train_batch_size=self.config.train_specific.batch_size,
@@ -354,13 +396,12 @@ class ContrastivePredictor(BasePredictor):
             num_train_epochs=self.config.train_specific.epochs,
             max_grad_norm=1.0,
             weight_decay=0.01,
-            seed=42,
+            seed=self.seed,
             dataloader_num_workers=4,
             disable_tqdm=True,
-            report_to=["wandb"],
-            load_best_model_at_end=True,
+            report_to=[self.report_to],
             lr_scheduler_type="linear",
-            save_strategy="epoch",
+            save_strategy=IntervalStrategy.NO,
             evaluation_strategy="epoch",
             logging_strategy="epoch"
         )
@@ -372,12 +413,13 @@ class ContrastivePredictor(BasePredictor):
                           eval_dataset=eval_dataset,
                           data_collator=collator,
                           compute_metrics=self.compute_metrics)
-        trainer.train()
-        trainer.evaluate(metric_key_prefix="eval")
+
+        self.perform_training(trainer, output=self.config.train_specific.output)
+
         self.trainer = trainer
 
     def test(self, test_set: DataFrame) -> float:
-        test_dataset = ContrastiveClassificationDataset(test_set)
+        test_dataset = ContrastiveClassificationDataset(test_set, tokenizer=self.config.transformer_name)
         predict_results = self.trainer.predict(test_dataset)
 
         return predict_results.metrics['test_f1']

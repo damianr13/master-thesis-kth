@@ -1,7 +1,11 @@
 import os
+import random
 from typing import Callable, Tuple, Optional
 
+import numpy as np
 import pandas as pd
+import torch
+import transformers
 import wandb
 
 from src.predictors.base import BasePredictor
@@ -84,24 +88,34 @@ def main():
 
 
 def stuff():
-    wandb.init(project="master-thesis", entity="damianr13")
-    ContrastivePreprocessor(os.path.join('configs', 'model_specific', 'contrastive', 'abt_buy.json')).preprocess()
+    # ContrastivePreprocessor(os.path.join('configs', 'model_specific', 'contrastive', 'amazon_google.json')).preprocess()
     print("Preprocessed!")
 
-    pretrain_set = pd.read_csv(os.path.join('data', 'processed', 'contrastive', 'abt_buy', 'pretrain.csv'))
-    train_set = pd.read_csv(os.path.join('data', 'processed', 'contrastive', 'abt_buy', 'train.csv'))
-    valid_set = pd.read_csv(os.path.join('data', 'processed', 'contrastive', 'abt_buy', 'valid.csv'))
-    test_set = pd.read_csv(os.path.join('data', 'processed', 'contrastive', 'abt_buy', 'test.csv'))
+    # pretrain_set = pd.read_csv(os.path.join('data', 'processed', 'contrastive', 'amazon_google', 'pretrain.csv'))
+    # train_set = pd.read_csv(os.path.join('data', 'processed', 'contrastive', 'amazon_google', 'train.csv'))
+    # valid_set = pd.read_csv(os.path.join('data', 'processed', 'contrastive', 'amazon_google', 'valid.csv'))
+    test_set = pd.read_csv(os.path.join('data', 'processed', 'contrastive', 'amazon_google', 'test.csv'))
 
-    predictor = ContrastivePredictor(config_path=os.path.join('configs', 'model_train', 'contrastive_frozen.json'))
-    predictor.pretrain(pretrain_set)
-    predictor.train(train_set, valid_set)
+    predictor = ContrastivePredictor(config_path=os.path.join('configs', 'model_train', 'contrastive',
+                                                              'frozen_no-aug_amazon-google.json'),
+                                     report=True, seed=42)
+    predictor.load_trained(os.path.join("output", "contrastive_frozen_amazon-google", "train", "pytorch_model.bin"))
+    # predictor.pretrain(pretrain_set)
+    # predictor.train(train_set, valid_set)
     print("Trained")
     f1 = predictor.test(test_set)
 
     print(f'Finished with resulting f1 {f1}')
 
 
+def seed_all(seed: int):
+    torch.manual_seed(seed)
+    random.seed(seed)
+    np.random.seed(seed)
+    transformers.set_seed(seed)
+
+
 if __name__ == "__main__":
     print(os.getcwd())
+    seed_all(42)
     stuff()

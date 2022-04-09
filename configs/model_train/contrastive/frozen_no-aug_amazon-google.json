@@ -1,0 +1,17 @@
+{
+  "frozen": true,
+  "dataset_name": "amazon_google",
+  "transformer_name": "huawei-noah/TinyBERT_General_4L_312D",
+  "pretrain_specific": {
+    "learning_rate": 5e-5,
+    "batch_size": 256,
+    "epochs": 200,
+    "output": "output/contrastive_frozen_amazon-google/pretrain"
+  },
+  "train_specific": {
+    "learning_rate": 5e-3,
+    "batch_size": 64,
+    "epochs": 50,
+    "output": "output/contrastive_frozen_amazon-google/train"
+  }
+}
