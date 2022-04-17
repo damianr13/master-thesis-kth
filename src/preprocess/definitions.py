@@ -47,7 +47,7 @@ class BasePreprocessor(Generic[T], ABC):
         df_for_location = self._extract_relevant_columns(df_for_location)
 
         for location, df in df_for_location.items():
-            df.to_csv(os.path.join(target_location, location))
+            df.to_csv(os.path.join(target_location, location), index=False)
 
     @staticmethod
     def read_one_split_file(path):

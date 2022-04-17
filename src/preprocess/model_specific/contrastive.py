@@ -1,3 +1,4 @@
+import re
 from itertools import chain
 from typing import Dict, Tuple
 
@@ -13,6 +14,10 @@ class ContrastivePreprocessor(BasePreprocessor[ContrastivePreprocessConfig]):
         super(ContrastivePreprocessor, self)\
             .__init__(config_path=config_path, config_instantiator=ContrastivePreprocessConfig.parse_obj)
 
+    @staticmethod
+    def _apply_pretrain_prefix(dataframe_name: str):
+        return f'pretrain-{dataframe_name}'
+
     def _extract_relevant_columns_one(self, df: DataFrame) -> DataFrame:
         return df[['left_text', 'right_text', 'label']]
 
@@ -26,15 +31,27 @@ class ContrastivePreprocessor(BasePreprocessor[ContrastivePreprocessConfig]):
         :return:
         """
         result = df_for_location.copy()
-        pretrain_set_df = result.pop(ContrastivePreprocessorUnknownClusters.PRETRAIN_SET_FILENAME)
+        pretrain_sets = {}
+        for df in self.config.pretrain_used_datasets:
+            pretrain_set_key = self._apply_pretrain_prefix(df)
+            pretrain_sets[pretrain_set_key] = result.pop(pretrain_set_key)
 
         result = super()._extract_relevant_columns(result)
-        result[ContrastivePreprocessorUnknownClusters.PRETRAIN_SET_FILENAME] = pretrain_set_df
+        result.update(pretrain_sets)
         return result
 
     @staticmethod
     def extract_intermediately_relevant_columns(df) -> DataFrame:
         return df[['left_id', 'right_id', 'left_text', 'right_text', 'label']]
+
+    @staticmethod
+    def _apply_preprocessing(text: str, max_length: int):
+        if not isinstance(text, str):
+            return text
+        text = re.sub(re.compile("\\s+"), " ", text)
+        text = text.strip()
+
+        return ' '.join(text.split(' ')[:max_length])
 
     def _preprocess_one(self, df: DataFrame) -> DataFrame:
         textual_columns = self.config.relevant_columns.copy()
@@ -44,7 +61,8 @@ class ContrastivePreprocessor(BasePreprocessor[ContrastivePreprocessConfig]):
         right_textual_column = {f'right_{c}': c for c in textual_columns}
 
         def concat_with_annotation(sample, columns: Dict[str, str]):
-            return ' '.join([f'[COL] {v} [VAL] {sample[k]}' for k, v in columns.items()])
+            return ' '.join([f'[COL] {v} [VAL] {self._apply_preprocessing(sample[k], self.config.column_lengths[v])}'
+                             for k, v in columns.items()])
 
         df['left_text'] = df.agg(lambda x: concat_with_annotation(x, left_textual_column), axis=1)
         df['right_text'] = df.agg(lambda x: concat_with_annotation(x, right_textual_column), axis=1)
@@ -64,15 +82,11 @@ class ContrastivePreprocessor(BasePreprocessor[ContrastivePreprocessConfig]):
         :param df_for_location:
         :return:
         """
-        pretrain_set = None
+        result = df_for_location.copy()
         for df_key in self.config.pretrain_used_datasets:
             df = df_for_location[df_key]
-            separated_df = self.__separate_sources_for_one(df)
-            pretrain_set = separated_df if pretrain_set is None else pd.concat((pretrain_set, separated_df))
+            result[self._apply_pretrain_prefix(df_key)] = self.__separate_sources_for_one(df).drop_duplicates()
 
-        pretrain_set = pretrain_set.drop_duplicates()
-        result = df_for_location.copy()
-        result[ContrastivePreprocessorUnknownClusters.PRETRAIN_SET_FILENAME] = pretrain_set
         return result
 
     def _separate_sources_for_one_as_tuple(self, df: DataFrame) -> Tuple[DataFrame, DataFrame]:
@@ -104,8 +118,6 @@ class ContrastivePreprocessorUnknownClusters(ContrastivePreprocessor):
     ITEM_ID_COLUMN_NAME = 'item_id'
     CLUSTER_ID_COLUMN_NAME = 'cluster_id'
     FULL_CLUSTER_COLUMN_NAME = 'full_cluster'
-
-    PRETRAIN_SET_FILENAME = 'pretrain.csv'
 
     def __init__(self, config_path: str):
         super(ContrastivePreprocessorUnknownClusters, self)\
@@ -167,7 +179,9 @@ class ContrastivePreprocessorUnknownClusters(ContrastivePreprocessor):
         standalone_right = self.__extract_standalone_clusters(full_set=full_set, full_matches=full_matches,
                                                               id_column=self.config.right_id_column)
         clusters_df = pd.concat((clusters_df, standalone_left, standalone_right))
-        clusters_df.insert(0, ContrastivePreprocessorUnknownClusters.CLUSTER_ID_COLUMN_NAME, range(0, len(clusters_df)))
+        clusters_df.insert(0,
+                           ContrastivePreprocessorUnknownClusters.CLUSTER_ID_COLUMN_NAME,
+                           pd.range(0, len(clusters_df)))
 
         return clusters_df[[ContrastivePreprocessorUnknownClusters.CLUSTER_ID_COLUMN_NAME,
                             self.config.left_id_column, self.config.right_id_column]]

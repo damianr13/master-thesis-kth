@@ -27,3 +27,4 @@ class ContrastivePreprocessConfig(BasePreprocConfig):
 
     pretrain_used_datasets: List[str]
     pretrain_sample: float
+    column_lengths: Dict[str, int]

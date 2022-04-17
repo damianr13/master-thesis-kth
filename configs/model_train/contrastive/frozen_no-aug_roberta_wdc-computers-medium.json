@@ -1,0 +1,22 @@
+{
+  "frozen": true,
+  "dataset_name": "wdc_computers_medium",
+  "transformer_name": "distilroberta-base",
+  "max_tokens": 128,
+  "pretrain_specific": {
+    "learning_rate": 5e-5,
+    "batch_size": 64,
+    "epochs": 200,
+    "output": "output/contrastive_frozen_roberta_wdc-computers-medium/pretrain",
+    "loaders": 6,
+    "parallel_batches": 1
+  },
+  "train_specific": {
+    "learning_rate": 5e-4,
+    "batch_size": 32,
+    "epochs": 50,
+    "output": "output/contrastive_frozen_roberta_wdc-computers-medium/train",
+    "loaders": 6,
+    "parallel_batches": 1
+  }
+}

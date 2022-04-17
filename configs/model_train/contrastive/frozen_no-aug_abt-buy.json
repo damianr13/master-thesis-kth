@@ -5,12 +5,12 @@
     "learning_rate": 5e-5,
     "batch_size": 128,
     "epochs": 200,
-    "output": "output/contrastive_frozen/pretrain"
+    "output": "output/contrastive_frozen_abt-buy/pretrain"
   },
   "train_specific": {
     "learning_rate": 5e-3,
     "batch_size": 64,
     "epochs": 50,
-    "output": "output/contrastive_frozen/train"
+    "output": "output/contrastive_frozen_abt-buy/train"
   }
 }

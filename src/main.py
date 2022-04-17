@@ -9,13 +9,12 @@ import transformers
 import wandb
 
 from src.predictors.base import BasePredictor
-from src.predictors.contrastive import ContrastivePretrainDataset, ContrastivePredictor
+from src.predictors.contrastive import ContrastivePredictor
 from src.predictors.dummy import AllMatchPredictor, NoMatchPredictor, BalancedPredictor, ClassDistributionAwarePredictor
 from src.predictors.word_cooc import WordCoocPredictor
 from src.preprocess.definitions import BasePreprocessor
+from src.preprocess.model_specific.contrastive import ContrastivePreprocessorKnownClusters
 from src.preprocess.model_specific.word_cooc import WordCoocPreprocessor
-from src.preprocess.model_specific.contrastive import ContrastivePreprocessorUnknownClusters, ContrastivePreprocessor, \
-    ContrastivePreprocessorKnownClusters
 from src.preprocess.standardize import RelationalDatasetStandardizer, WDCDatasetStandardizer
 
 
@@ -89,9 +88,27 @@ def main():
 
 
 def stuff():
-    WDCDatasetStandardizer(os.path.join('configs', 'stands_tasks', 'wdc_computers_large.json')).preprocess()
+    WDCDatasetStandardizer(os.path.join('configs', 'stands_tasks', 'wdc_computers_medium.json')).preprocess()
     ContrastivePreprocessorKnownClusters(
-        os.path.join('configs', 'model_specific', 'contrastive', 'wdc_computers_large.json')).preprocess()
+        os.path.join('configs', 'model_specific', 'contrastive', 'wdc_computers_medium.json')).preprocess()
+    #
+    pretrain_train_set = pd.read_csv(os.path.join('data', 'processed', 'contrastive', 'wdc_computers_medium',
+                                                  'pretrain-train.csv'))
+    pretrain_valid_set = pd.read_csv(os.path.join('data', 'processed', 'contrastive', 'wdc_computers_medium',
+                                                  'pretrain-valid.csv'))
+    train_set = pd.read_csv(os.path.join('data', 'processed', 'contrastive', 'wdc_computers_medium', 'train.csv'))
+    valid_set = pd.read_csv(os.path.join('data', 'processed', 'contrastive', 'wdc_computers_medium', 'valid.csv'))
+    test_set = pd.read_csv(os.path.join('data', 'processed', 'contrastive', 'wdc_computers_medium', 'test.csv'))
+    #
+    predictor = ContrastivePredictor(config_path=os.path.join('configs', 'model_train', 'contrastive',
+                                                              'frozen_no-aug_roberta-full_wdc-computers-medium.json'),
+                                     report=False, seed=42)
+    predictor.pretrain(pretrain_set=pretrain_train_set, valid_set=pretrain_valid_set, source_aware_sampling=False)
+    predictor.train(train_set, valid_set)
+    print("Trained")
+    f1 = predictor.test(test_set)
+    #
+    print(f'Finished with resulting f1 {f1}')
 
 
 def seed_all(seed: int):

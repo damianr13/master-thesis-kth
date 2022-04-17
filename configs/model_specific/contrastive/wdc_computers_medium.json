@@ -1,6 +1,6 @@
 {
-  "original_location": "data/interim/wdc_computers_large/",
-  "target_location": "data/processed/contrastive/wdc_computers_large/",
+  "original_location": "data/interim/wdc_computers_medium/",
+  "target_location": "data/processed/contrastive/wdc_computers_medium/",
   "split_files": {
     "train.csv": "train.csv",
     "test.csv": "test.csv",
@@ -10,14 +10,14 @@
     "cluster_id", "title", "description", "specTableContent", "category"
   ],
   "column_lengths": {
-    "title": 20,
-    "description": 40,
-    "category": 5,
-    "specTableContent": 63
+    "title": 30,
+    "description": 60,
+    "category": 8,
+    "specTableContent": 150
   },
   "left_id_column": "left_id",
   "right_id_column": "right_id",
-  "pretrain_used_datasets": ["train.csv", "valid.csv"],
+  "pretrain_used_datasets": ["train.csv", "valid.csv", "test.csv"],
   "pretrain_sample": 0.8,
   "label_column": "label"
 }
