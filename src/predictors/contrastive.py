@@ -25,7 +25,7 @@ class DeepLearningHyperparameters(BaseModel):
     learning_rate: float = 5e-5
     epochs: int = 200
     batch_size: int = 64
-    output: str = 'output'
+    output: str = None
     loaders: int = 4
     parallel_batches: int = 1
     early_stop_patience: int = 10
@@ -314,6 +314,16 @@ class ContrastivePredictor(BasePredictor):
         self.report_to = "wandb" if report else "none"
         self.seed = seed
 
+        self._init_default_configs(config_path)
+
+    def _init_default_configs(self, config_path: str):
+        config_name = config_path.split('/')[-1][:-5]
+        if self.config.train_specific.output is None:
+            self.config.train_specific.output = os.path.join('output', config_name, 'train')
+
+        if self.config.pretrain_specific.output is None:
+            self.config.pretrain_specific.output = os.path.join('output', config_name, 'pretrain')
+
     @staticmethod
     def compute_metrics(eval_pred):
         pred, labels = eval_pred
@@ -333,7 +343,9 @@ class ContrastivePredictor(BasePredictor):
         if self.report:
             run_config = self.config.dict()
             run_config['current_target'] = 'pretrain'
-            run = wandb.init(project="master-thesis", entity="damianr13", config=run_config)
+            output_split = output.split('/')
+            run_name = output_split[-2] + '_' + output_split[-1]
+            run = wandb.init(project="master-thesis", entity="damianr13", config=run_config, name=run_name)
 
         if not checkpoint_path:
             trainer.train()

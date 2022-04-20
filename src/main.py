@@ -7,6 +7,7 @@ import pandas as pd
 import torch
 import transformers
 import wandb
+from pydantic import BaseModel
 
 from src.predictors.base import BasePredictor
 from src.predictors.contrastive import ContrastivePredictor
@@ -66,7 +67,7 @@ def run_experiments_for_predictor(predictor: BasePredictor,
     results_table.add_data('wdc_computers_large', model_name, f1)
 
 
-def main():
+def run_baseline_experiments():
     wandb.init(project="master-thesis", entity="damianr13")
     f1_table = wandb.Table(columns=['experiment', 'model', 'score'])
 
@@ -87,28 +88,102 @@ def main():
     wandb.log({"f1_scores": f1_table})
 
 
-def stuff():
-    WDCDatasetStandardizer(os.path.join('configs', 'stands_tasks', 'wdc_computers_medium.json')).preprocess()
-    ContrastivePreprocessorKnownClusters(
-        os.path.join('configs', 'model_specific', 'contrastive', 'wdc_computers_medium.json')).preprocess()
+class SupConExperimentConfig(BaseModel):
+    stand_path: str
+    proc_path: str
+    predictor_path: str
+    known_clusters: str
+
+
+def run_single_supcon_experiment(experiment_config: SupConExperimentConfig):
+    known_clusters = experiment_config.known_clusters
+    WDCDatasetStandardizer(experiment_config.stand_path).preprocess()
+    preprocessor = ContrastivePreprocessorKnownClusters(experiment_config.proc_path) if known_clusters \
+        else ContrastivePredictor(experiment_config.proc_path)
+    preprocessor.preprocess()
+
+    pretrain_train_set = pd.read_csv(os.path.join(preprocessor.config.target_location, 'pretrain-train.csv'))
+    pretrain_valid_set = pd.read_csv(os.path.join(preprocessor.config.target_location, 'pretrain-valid.csv'))
+    train_set = pd.read_csv(os.path.join(preprocessor.config.target_location, 'train.csv'))
+    valid_set = pd.read_csv(os.path.join(preprocessor.config.target_location, 'valid.csv'))
+    test_set = pd.read_csv(os.path.join(preprocessor.config.target_location, 'test.csv'))
     #
-    pretrain_train_set = pd.read_csv(os.path.join('data', 'processed', 'contrastive', 'wdc_computers_medium',
-                                                  'pretrain-train.csv'))
-    pretrain_valid_set = pd.read_csv(os.path.join('data', 'processed', 'contrastive', 'wdc_computers_medium',
-                                                  'pretrain-valid.csv'))
-    train_set = pd.read_csv(os.path.join('data', 'processed', 'contrastive', 'wdc_computers_medium', 'train.csv'))
-    valid_set = pd.read_csv(os.path.join('data', 'processed', 'contrastive', 'wdc_computers_medium', 'valid.csv'))
-    test_set = pd.read_csv(os.path.join('data', 'processed', 'contrastive', 'wdc_computers_medium', 'test.csv'))
-    #
-    predictor = ContrastivePredictor(config_path=os.path.join('configs', 'model_train', 'contrastive',
-                                                              'frozen_no-aug_wdc-computers-medium.json'),
-                                     report=True, seed=42)
-    predictor.pretrain(pretrain_set=pretrain_train_set, valid_set=pretrain_valid_set, source_aware_sampling=False)
+    predictor = ContrastivePredictor(config_path=experiment_config.predictor_path, report=True, seed=42)
+    predictor.pretrain(pretrain_set=pretrain_train_set, valid_set=pretrain_valid_set,
+                       source_aware_sampling=not known_clusters)
     predictor.train(train_set, valid_set)
     print("Trained")
     f1 = predictor.test(test_set)
-    #
+
     print(f'Finished with resulting f1 {f1}')
+
+    if wandb.run:
+        wandb.run.finish()
+
+
+def run_supcon_experiments():
+    experiments = [
+        {
+            "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_medium.json'),
+            "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'wdc_computers_medium.json'),
+            "predictor_path": os.path.join('configs', 'model_train', 'contrastive',
+                                           'frozen_no-aug_batch-pt64_wdc-computers-medium.json'),
+            "known_clusters": True
+        },
+        {
+            "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_medium.json'),
+            "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'wdc_computers_medium.json'),
+            "predictor_path": os.path.join('configs', 'model_train', 'contrastive',
+                                           'frozen_no-aug_batch-pt128_wdc-computers-medium.json'),
+            "known_clusters": True
+        },
+        {
+            "stand_path": os.path.join('configs', 'stands_tasks', 'amazon_google.json'),
+            "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'amazon_google.json'),
+            "predictor_path": os.path.join('configs', 'model_train', 'contrastive',
+                                           'frozen_no-aug_batch-pt64_amazon-google.json'),
+            "known_clusters": False
+        },
+        {
+            "stand_path": os.path.join('configs', 'stands_tasks', 'amazon_google.json'),
+            "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'amazon_google.json'),
+            "predictor_path": os.path.join('configs', 'model_train', 'contrastive',
+                                           'frozen_no-aug_batch-pt128_amazon-google.json'),
+            "known_clusters": False
+        },
+        {
+            "stand_path": os.path.join('configs', 'stands_tasks', 'amazon_google.json'),
+            "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'amazon_google.json'),
+            "predictor_path": os.path.join('configs', 'model_train', 'contrastive',
+                                           'frozen_no-aug_batch-pt256_amazon-google.json'),
+            "known_clusters": False
+        },
+        {
+            "stand_path": os.path.join('configs', 'stands_tasks', 'abt_buy.json'),
+            "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'abt_buy.json'),
+            "predictor_path": os.path.join('configs', 'model_train', 'contrastive',
+                                           'frozen_no-aug_batch-pt64_abt-buy.json'),
+            "known_clusters": False
+        },
+        {
+            "stand_path": os.path.join('configs', 'stands_tasks', 'abt_buy.json'),
+            "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'abt_buy.json'),
+            "predictor_path": os.path.join('configs', 'model_train', 'contrastive',
+                                           'frozen_no-aug_batch-pt128_abt-buy.json'),
+            "known_clusters": False
+        },
+        {
+            "stand_path": os.path.join('configs', 'stands_tasks', 'abt_buy.json'),
+            "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'abt_buy.json'),
+            "predictor_path": os.path.join('configs', 'model_train', 'contrastive',
+                                           'frozen_no-aug_batch-pt256_abt-buy.json'),
+            "known_clusters": False
+        },
+    ]
+
+    for exp in experiments:
+        experiment_config = SupConExperimentConfig.parse_obj(exp)
+        run_single_supcon_experiment(experiment_config)
 
 
 def seed_all(seed: int):
@@ -121,4 +196,4 @@ def seed_all(seed: int):
 if __name__ == "__main__":
     print(os.getcwd())
     seed_all(42)
-    stuff()
+    run_supcon_experiments()
