@@ -101,8 +101,8 @@ def stuff():
     test_set = pd.read_csv(os.path.join('data', 'processed', 'contrastive', 'wdc_computers_medium', 'test.csv'))
     #
     predictor = ContrastivePredictor(config_path=os.path.join('configs', 'model_train', 'contrastive',
-                                                              'frozen_no-aug_roberta-full_wdc-computers-medium.json'),
-                                     report=False, seed=42)
+                                                              'frozen_no-aug_wdc-computers-medium.json'),
+                                     report=True, seed=42)
     predictor.pretrain(pretrain_set=pretrain_train_set, valid_set=pretrain_valid_set, source_aware_sampling=False)
     predictor.train(train_set, valid_set)
     print("Trained")
