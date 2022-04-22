@@ -9,6 +9,10 @@
   "relevant_columns": [
     "cluster_id", "title", "manufacturer"
   ],
+  "column_lengths": {
+    "title": 100,
+    "manufacturer": 28
+  },
   "left_id_column": "left_id",
   "right_id_column": "right_id",
   "pretrain_used_datasets": ["train.csv", "valid.csv"],

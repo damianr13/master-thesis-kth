@@ -14,7 +14,8 @@ from src.predictors.contrastive import ContrastivePredictor
 from src.predictors.dummy import AllMatchPredictor, NoMatchPredictor, BalancedPredictor, ClassDistributionAwarePredictor
 from src.predictors.word_cooc import WordCoocPredictor
 from src.preprocess.definitions import BasePreprocessor
-from src.preprocess.model_specific.contrastive import ContrastivePreprocessorKnownClusters
+from src.preprocess.model_specific.contrastive import ContrastivePreprocessorKnownClusters, \
+    ContrastivePreprocessorUnknownClusters
 from src.preprocess.model_specific.word_cooc import WordCoocPreprocessor
 from src.preprocess.standardize import RelationalDatasetStandardizer, WDCDatasetStandardizer
 
@@ -92,14 +93,16 @@ class SupConExperimentConfig(BaseModel):
     stand_path: str
     proc_path: str
     predictor_path: str
-    known_clusters: str
+    known_clusters: bool
 
 
 def run_single_supcon_experiment(experiment_config: SupConExperimentConfig):
     known_clusters = experiment_config.known_clusters
-    WDCDatasetStandardizer(experiment_config.stand_path).preprocess()
+    standardizer = WDCDatasetStandardizer(experiment_config.stand_path) if known_clusters \
+        else RelationalDatasetStandardizer(experiment_config.stand_path)
+    standardizer.preprocess()
     preprocessor = ContrastivePreprocessorKnownClusters(experiment_config.proc_path) if known_clusters \
-        else ContrastivePredictor(experiment_config.proc_path)
+        else ContrastivePreprocessorUnknownClusters(experiment_config.proc_path)
     preprocessor.preprocess()
 
     pretrain_train_set = pd.read_csv(os.path.join(preprocessor.config.target_location, 'pretrain-train.csv'))
@@ -123,20 +126,20 @@ def run_single_supcon_experiment(experiment_config: SupConExperimentConfig):
 
 def run_supcon_experiments():
     experiments = [
-        {
-            "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_medium.json'),
-            "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'wdc_computers_medium.json'),
-            "predictor_path": os.path.join('configs', 'model_train', 'contrastive',
-                                           'frozen_no-aug_batch-pt64_wdc-computers-medium.json'),
-            "known_clusters": True
-        },
-        {
-            "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_medium.json'),
-            "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'wdc_computers_medium.json'),
-            "predictor_path": os.path.join('configs', 'model_train', 'contrastive',
-                                           'frozen_no-aug_batch-pt128_wdc-computers-medium.json'),
-            "known_clusters": True
-        },
+        # {
+        #     "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_medium.json'),
+        #     "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'wdc_computers_medium.json'),
+        #     "predictor_path": os.path.join('configs', 'model_train', 'contrastive',
+        #                                    'frozen_no-aug_batch-pt64_wdc-computers-medium.json'),
+        #     "known_clusters": True
+        # },
+        # {
+        #     "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_medium.json'),
+        #     "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'wdc_computers_medium.json'),
+        #     "predictor_path": os.path.join('configs', 'model_train', 'contrastive',
+        #                                    'frozen_no-aug_batch-pt128_wdc-computers-medium.json'),
+        #     "known_clusters": True
+        # },
         {
             "stand_path": os.path.join('configs', 'stands_tasks', 'amazon_google.json'),
             "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'amazon_google.json'),

@@ -2,6 +2,7 @@ import re
 from itertools import chain
 from typing import Dict, Tuple
 
+import numpy as np
 import pandas as pd
 from pandas import DataFrame
 
@@ -181,7 +182,7 @@ class ContrastivePreprocessorUnknownClusters(ContrastivePreprocessor):
         clusters_df = pd.concat((clusters_df, standalone_left, standalone_right))
         clusters_df.insert(0,
                            ContrastivePreprocessorUnknownClusters.CLUSTER_ID_COLUMN_NAME,
-                           pd.range(0, len(clusters_df)))
+                           np.arange(0, len(clusters_df)))
 
         return clusters_df[[ContrastivePreprocessorUnknownClusters.CLUSTER_ID_COLUMN_NAME,
                             self.config.left_id_column, self.config.right_id_column]]
