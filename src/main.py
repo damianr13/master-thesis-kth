@@ -140,11 +140,18 @@ def run_supcon_experiments():
         #                                    'frozen_no-aug_batch-pt128_wdc-computers-medium.json'),
         #     "known_clusters": True
         # },
+        # {
+        #     "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_medium.json'),
+        #     "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'wdc_computers_medium.json'),
+        #     "predictor_path": os.path.join('configs', 'model_train', 'contrastive',
+        #                                    'frozen_no-aug_batch-pt512_wdc-computers-medium.json'),
+        #     "known_clusters": True
+        # },
         {
             "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_medium.json'),
             "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'wdc_computers_medium.json'),
             "predictor_path": os.path.join('configs', 'model_train', 'contrastive',
-                                           'frozen_no-aug_batch-pt512_wdc-computers-medium.json'),
+                                           'frozen_no-aug_batch-pt1024_wdc-computers-medium.json'),
             "known_clusters": True
         },
         # {
@@ -168,11 +175,18 @@ def run_supcon_experiments():
         #                                    'frozen_no-aug_batch-pt256_amazon-google.json'),
         #     "known_clusters": False
         # },
+        # {
+        #     "stand_path": os.path.join('configs', 'stands_tasks', 'amazon_google.json'),
+        #     "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'amazon_google.json'),
+        #     "predictor_path": os.path.join('configs', 'model_train', 'contrastive',
+        #                                    'frozen_no-aug_batch-pt512_amazon-google.json'),
+        #     "known_clusters": False
+        # },
         {
             "stand_path": os.path.join('configs', 'stands_tasks', 'amazon_google.json'),
             "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'amazon_google.json'),
             "predictor_path": os.path.join('configs', 'model_train', 'contrastive',
-                                           'frozen_no-aug_batch-pt512_amazon-google.json'),
+                                           'frozen_no-aug_batch-pt1024_amazon-google.json'),
             "known_clusters": False
         },
         # {
@@ -196,11 +210,18 @@ def run_supcon_experiments():
         #                                    'frozen_no-aug_batch-pt256_abt-buy.json'),
         #     "known_clusters": False
         # },
+        # {
+        #     "stand_path": os.path.join('configs', 'stands_tasks', 'abt_buy.json'),
+        #     "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'abt_buy.json'),
+        #     "predictor_path": os.path.join('configs', 'model_train', 'contrastive',
+        #                                    'frozen_no-aug_batch-pt512_abt-buy.json'),
+        #     "known_clusters": False
+        # },
         {
             "stand_path": os.path.join('configs', 'stands_tasks', 'abt_buy.json'),
             "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'abt_buy.json'),
             "predictor_path": os.path.join('configs', 'model_train', 'contrastive',
-                                           'frozen_no-aug_batch-pt512_abt-buy.json'),
+                                           'frozen_no-aug_batch-pt1024_abt-buy.json'),
             "known_clusters": False
         },
     ]
