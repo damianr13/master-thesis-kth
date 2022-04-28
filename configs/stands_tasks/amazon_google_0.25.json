@@ -1,0 +1,13 @@
+{
+  "original_location": "data/raw/amazon_google/",
+  "target_location": "data/interim/amazon_google_25/",
+  "relevant_columns": [
+    "id", "title", "manufacturer"
+  ],
+  "split_files": {
+    "train.csv": "train.csv",
+    "test.csv": "test.csv",
+    "valid.csv": "valid.csv"
+  },
+  "train_sample_frac": 0.25
+}

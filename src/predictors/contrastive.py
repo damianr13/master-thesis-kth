@@ -49,7 +49,7 @@ class ContrastivePretrainDataset(Dataset):
 
     def __getitem__(self, idx):
         item = self.data.iloc[idx].copy()
-        positive = self.data[self.data['cluster_id'] == item['cluster_id']].sample(1).iloc[0].copy()
+        positive = self.data[self.data['cluster_id'] == item['cluster_id']].train_sample_frac(1).iloc[0].copy()
 
         return item, positive
 
@@ -107,7 +107,7 @@ class ContrastivePretrainDatasetWithSourceAwareSampling(Dataset):
         data_source = self.sources_map[self.source_list[data_source_index]]
 
         item = data_source.iloc[index].copy()
-        positive = data_source[data_source['cluster_id'] == item['cluster_id']].sample(1).iloc[0].copy()
+        positive = data_source[data_source['cluster_id'] == item['cluster_id']].train_sample_frac(1).iloc[0].copy()
 
         return item, positive
 

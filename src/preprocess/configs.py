@@ -4,13 +4,17 @@ from pydantic import BaseModel
 
 
 class BasePreprocConfig(BaseModel):
-    original_location: str
-    target_location: str
+    original_location: str = None
+    target_location: str = None
     split_files: Dict[str, str]
     relevant_columns: List[str]
 
 
-class WDCStandardizerConfig(BasePreprocConfig):
+class BaseStandardizerConfig(BasePreprocConfig):
+    train_sample_frac: float = 1
+
+
+class WDCStandardizerConfig(BaseStandardizerConfig):
     train_valid_split_file: str
     intermediate_train_valid_name: str
 

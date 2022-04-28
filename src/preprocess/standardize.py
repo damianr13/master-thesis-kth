@@ -1,14 +1,44 @@
 import os
-from typing import Dict
+from abc import ABC
+from typing import Dict, TypeVar, Generic
 
 import pandas as pd
 from pandas import DataFrame
 
-from src.preprocess.configs import WDCStandardizerConfig, BasePreprocConfig
+from src.preprocess.configs import WDCStandardizerConfig, BasePreprocConfig, BaseStandardizerConfig
 from src.preprocess.definitions import BasePreprocessor
 
+T = TypeVar("T", bound=BaseStandardizerConfig)
 
-class RelationalDatasetStandardizer(BasePreprocessor[BasePreprocConfig]):
+
+class BaseStandardizer(BasePreprocessor, Generic[T], ABC):
+    def _sample_data(self, df: DataFrame) -> DataFrame:
+        if self.config.train_sample_frac >= 1:
+            return df
+
+        left_ids = pd.Series(df['left_id'].unique()).sample(frac=self.config.train_sample_frac)
+        right_matching_ids = df[df['left_id'].isin(left_ids) & (df['label'] == 1)]['right_id'] \
+            .unique()
+        right_matching_ids = pd.Series(right_matching_ids)
+
+        right_all_ids = pd.Series(df['right_id'].unique())
+
+        already_sampled_frac = len(right_matching_ids) / len(right_all_ids)
+        if already_sampled_frac > self.config.train_sample_frac:
+            right_ids = right_matching_ids.sample(frac=self.config.train_sample_frac / already_sampled_frac)
+        else:
+            right_non_matching_ids: pd.Series = right_all_ids[~right_all_ids.isin(right_matching_ids)]
+            to_sample = self.config.train_sample_frac - already_sampled_frac
+            right_ids = pd.concat([right_matching_ids, right_non_matching_ids.sample(frac=to_sample)])
+
+        return df[df['left_id'].isin(left_ids) & df['right_id'].isin(right_ids)]
+
+    def _preprocess_all(self, df_for_location: Dict[str, DataFrame]) -> Dict[str, DataFrame]:
+        df_for_location['train.csv'] = self._sample_data(df_for_location['train.csv'])
+        return super()._preprocess_all(df_for_location)
+
+
+class RelationalDatasetStandardizer(BaseStandardizer[BaseStandardizerConfig]):
     """
     Applies standardization operation for datasets with a "relational format".
 
@@ -19,7 +49,7 @@ class RelationalDatasetStandardizer(BasePreprocessor[BasePreprocConfig]):
 
     def __init__(self, config_path):
         super(RelationalDatasetStandardizer, self).__init__(config_path=config_path,
-                                                            config_instantiator=BasePreprocConfig.parse_obj)
+                                                            config_instantiator=BaseStandardizerConfig.parse_obj)
 
         self.source_a = pd.read_csv(os.path.join(self.config.original_location, 'tableA.csv'))
         self.source_b = pd.read_csv(os.path.join(self.config.original_location, 'tableB.csv'))
@@ -34,7 +64,7 @@ class RelationalDatasetStandardizer(BasePreprocessor[BasePreprocConfig]):
         return super()._preprocess_one(result)
 
 
-class WDCDatasetStandardizer(BasePreprocessor[WDCStandardizerConfig]):
+class WDCDatasetStandardizer(BaseStandardizer[WDCStandardizerConfig]):
     def __init__(self, config_path):
         super(WDCDatasetStandardizer, self).__init__(config_path=config_path,
                                                      config_instantiator=WDCStandardizerConfig.parse_obj)
@@ -68,4 +98,5 @@ class WDCDatasetStandardizer(BasePreprocessor[WDCStandardizerConfig]):
         result[train_df_location] = train_df
         result[valid_df_location] = valid_df
 
-        return {k: self.__apply_correct_names(df) for k, df in result.items()}
+        result = {k: self.__apply_correct_names(df) for k, df in result.items()}
+        return super()._preprocess_all(result)

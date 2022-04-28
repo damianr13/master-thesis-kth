@@ -1,6 +1,4 @@
 {
-  "original_location": "data/interim/wdc_computers_medium/",
-  "target_location": "data/processed/contrastive/wdc_computers_medium/",
   "split_files": {
     "train.csv": "train.csv",
     "test.csv": "test.csv",

@@ -1,0 +1,14 @@
+{
+  "original_location": "data/raw/wdc-lspc/",
+  "target_location": "data/interim/wdc_computers_medium_75/",
+  "relevant_columns": [
+    "id", "cluster_id", "title", "description", "specTableContent", "category"
+  ],
+  "split_files": {
+    "training-sets/computers_train_medium.json.gz": "train.csv@valid.csv",
+    "gold-standards/computers_gs.json.gz": "test.csv"
+  },
+  "train_valid_split_file": "validation-sets/computers_valid_medium.csv",
+  "intermediate_train_valid_name": "train.csv@valid.csv",
+  "train_sample_frac": 0.75
+}

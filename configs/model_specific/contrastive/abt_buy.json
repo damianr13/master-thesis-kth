@@ -1,6 +1,4 @@
 {
-  "original_location": "data/interim/abt_buy/",
-  "target_location": "data/processed/contrastive/abt_buy/",
   "split_files": {
     "train.csv": "train.csv",
     "test.csv": "test.csv",

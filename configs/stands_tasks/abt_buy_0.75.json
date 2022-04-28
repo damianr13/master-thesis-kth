@@ -1,0 +1,13 @@
+{
+  "original_location": "data/raw/abt_buy/",
+  "target_location": "data/interim/abt_buy_75/",
+  "relevant_columns": [
+    "id", "name", "description"
+  ],
+  "split_files": {
+    "train.csv": "train.csv",
+    "test.csv": "test.csv",
+    "valid.csv": "valid.csv"
+  },
+  "train_sample_frac": 0.75
+}
