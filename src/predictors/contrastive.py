@@ -411,7 +411,7 @@ class ContrastivePredictor(BasePredictor):
 
         self.perform_training(trainer, output=self.config.pretrain_specific.output, checkpoint_path=checkpoint_path)
         if not arguments.save_checkpoints:
-            shutil.rmtree(self.config.train_specific.output)
+            shutil.rmtree(self.config.pretrain_specific.output)
 
         self.transformer = model.transformer
         if self.config.frozen:
