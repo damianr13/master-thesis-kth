@@ -500,5 +500,6 @@ class ContrastivePredictor(BasePredictor):
         predict_results = self.trainer.predict(test_dataset)
 
         f1 = predict_results.metrics['test_f1']
-        wandb.log({'f1': f1})
+        if wandb.run:
+            wandb.log({'f1': f1})
         return f1
