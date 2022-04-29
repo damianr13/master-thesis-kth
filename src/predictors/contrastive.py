@@ -18,7 +18,7 @@ from transformers import AutoTokenizer, AutoModel, Trainer, TrainingArguments, P
     IntervalStrategy, SchedulerType, EarlyStoppingCallback
 
 from src import utils
-from src.main import ExperimentsArgumentParser
+from src.preprocess.configs import ExperimentsArgumentParser
 from src.predictors.base import BasePredictor
 
 
@@ -373,7 +373,7 @@ class ContrastivePredictor(BasePredictor):
         model = ContrastivePretrainModel(len_tokenizer=len(self.tokenizer), model=self.config.transformer_name)
 
         num_epochs = self.config.pretrain_specific.epochs if not arguments.debug else 1
-        save_strategy = IntervalStrategy.EPOCH if arguments.save_checkpoints else None
+        save_strategy = IntervalStrategy.EPOCH if arguments.save_checkpoints else IntervalStrategy.NO
         load_best_model_at_end = arguments.save_checkpoints
 
         training_args = TrainingArguments(output_dir=self.config.pretrain_specific.output,
@@ -449,8 +449,8 @@ class ContrastivePredictor(BasePredictor):
                                            existing_transformer=self.transformer,
                                            model=self.config.transformer_name)
 
-        num_epochs = self.config.train_specific.epochs if not debug else 1
-        save_strategy = IntervalStrategy.EPOCH if arguments.save_checkpoints else None
+        num_epochs = self.config.train_specific.epochs if not arguments.debug else 1
+        save_strategy = IntervalStrategy.EPOCH if arguments.save_checkpoints else IntervalStrategy.NO
         load_best_model_at_end = arguments.save_checkpoints
 
         training_args = TrainingArguments(
@@ -475,7 +475,7 @@ class ContrastivePredictor(BasePredictor):
             lr_scheduler_type=SchedulerType.LINEAR,
             evaluation_strategy=IntervalStrategy.EPOCH,
             logging_strategy=IntervalStrategy.EPOCH,
-            load_best_model_at_end=True
+            load_best_model_at_end=load_best_model_at_end
         )
         collator = ContrastiveClassifierDataCollator(tokenizer=self.tokenizer, max_length=self.config.max_tokens)
 

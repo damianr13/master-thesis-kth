@@ -1,4 +1,3 @@
-import argparse
 import os
 import random
 from typing import Callable, Tuple, Optional
@@ -9,23 +8,17 @@ import torch
 import transformers
 import wandb
 from pydantic import BaseModel
-from tap import Tap
 
 from src.predictors.base import BasePredictor
 from src.predictors.contrastive import ContrastivePredictor
 from src.predictors.dummy import AllMatchPredictor, NoMatchPredictor, BalancedPredictor, ClassDistributionAwarePredictor
 from src.predictors.word_cooc import WordCoocPredictor
+from src.preprocess.configs import ExperimentsArgumentParser
 from src.preprocess.definitions import BasePreprocessor
 from src.preprocess.model_specific.contrastive import ContrastivePreprocessorKnownClusters, \
     ContrastivePreprocessorUnknownClusters
 from src.preprocess.model_specific.word_cooc import WordCoocPreprocessor
 from src.preprocess.standardize import RelationalDatasetStandardizer, WDCDatasetStandardizer
-
-
-class ExperimentsArgumentParser(Tap):
-    no_train: bool = False
-    debug: bool = False
-    save_checkpoints: bool = False
 
 
 def run_pipeline(stand_config: str, preproc_config: str, predictor: BasePredictor,

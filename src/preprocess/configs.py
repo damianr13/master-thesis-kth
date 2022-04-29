@@ -1,6 +1,13 @@
 from typing import List, Dict
 
 from pydantic import BaseModel
+from tap import Tap
+
+
+class ExperimentsArgumentParser(Tap):
+    no_train: bool = False
+    debug: bool = False
+    save_checkpoints: bool = False
 
 
 class BasePreprocConfig(BaseModel):
