@@ -1,5 +1,6 @@
 import os
 import random
+import shutil
 from abc import ABC
 from dataclasses import dataclass
 from typing import Dict, List, Optional
@@ -373,8 +374,6 @@ class ContrastivePredictor(BasePredictor):
         model = ContrastivePretrainModel(len_tokenizer=len(self.tokenizer), model=self.config.transformer_name)
 
         num_epochs = self.config.pretrain_specific.epochs if not arguments.debug else 1
-        save_strategy = IntervalStrategy.EPOCH if arguments.save_checkpoints else IntervalStrategy.NO
-        load_best_model_at_end = arguments.save_checkpoints
 
         training_args = TrainingArguments(output_dir=self.config.pretrain_specific.output,
                                           seed=self.seed,
@@ -390,13 +389,13 @@ class ContrastivePredictor(BasePredictor):
                                           metric_for_best_model="loss",
                                           disable_tqdm=True,
                                           report_to=[self.report_to],
-                                          save_strategy=save_strategy,
+                                          save_strategy=IntervalStrategy.EPOCH,
                                           save_steps=10,
                                           eval_steps=10,
                                           overwrite_output_dir=True,
                                           lr_scheduler_type=SchedulerType.LINEAR,
                                           logging_strategy=IntervalStrategy.EPOCH,
-                                          load_best_model_at_end=load_best_model_at_end,
+                                          load_best_model_at_end=True,
                                           evaluation_strategy=IntervalStrategy.EPOCH)
 
         collator = ContrastivePretrainingDataCollator(tokenizer=self.tokenizer, max_length=self.config.max_tokens)
@@ -411,6 +410,8 @@ class ContrastivePredictor(BasePredictor):
                 early_stopping_patience=self.config.pretrain_specific.early_stop_patience))
 
         self.perform_training(trainer, output=self.config.pretrain_specific.output, checkpoint_path=checkpoint_path)
+        if not arguments.save_checkpoints:
+            shutil.rmtree(self.config.train_specific.output)
 
         self.transformer = model.transformer
         if self.config.frozen:
@@ -450,8 +451,6 @@ class ContrastivePredictor(BasePredictor):
                                            model=self.config.transformer_name)
 
         num_epochs = self.config.train_specific.epochs if not arguments.debug else 1
-        save_strategy = IntervalStrategy.EPOCH if arguments.save_checkpoints else IntervalStrategy.NO
-        load_best_model_at_end = arguments.save_checkpoints
 
         training_args = TrainingArguments(
             output_dir=self.config.train_specific.output,
@@ -471,11 +470,11 @@ class ContrastivePredictor(BasePredictor):
             dataloader_num_workers=self.config.train_specific.loaders,
             gradient_accumulation_steps=self.config.train_specific.parallel_batches,
             report_to=[self.report_to],
-            save_strategy=save_strategy,
+            save_strategy=IntervalStrategy.EPOCH,
             lr_scheduler_type=SchedulerType.LINEAR,
             evaluation_strategy=IntervalStrategy.EPOCH,
             logging_strategy=IntervalStrategy.EPOCH,
-            load_best_model_at_end=load_best_model_at_end
+            load_best_model_at_end=True
         )
         collator = ContrastiveClassifierDataCollator(tokenizer=self.tokenizer, max_length=self.config.max_tokens)
 
@@ -491,6 +490,8 @@ class ContrastivePredictor(BasePredictor):
                 early_stopping_patience=self.config.train_specific.early_stop_patience))
 
         self.perform_training(trainer, output=self.config.train_specific.output, finish_run=False)
+        if not arguments.save_checkpoints:
+            shutil.rmtree(self.config.train_specific.output)
 
         self.trainer = trainer
 
