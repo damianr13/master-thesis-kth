@@ -1,3 +1,4 @@
+import argparse
 import os
 import random
 from typing import Callable, Tuple, Optional
@@ -8,6 +9,7 @@ import torch
 import transformers
 import wandb
 from pydantic import BaseModel
+from tap import Tap
 
 from src.predictors.base import BasePredictor
 from src.predictors.contrastive import ContrastivePredictor
@@ -18,6 +20,11 @@ from src.preprocess.model_specific.contrastive import ContrastivePreprocessorKno
     ContrastivePreprocessorUnknownClusters
 from src.preprocess.model_specific.word_cooc import WordCoocPreprocessor
 from src.preprocess.standardize import RelationalDatasetStandardizer, WDCDatasetStandardizer
+
+
+class ExperimentsArgumentParser(Tap):
+    no_train: bool = False
+    debug: bool = False
 
 
 def run_pipeline(stand_config: str, preproc_config: str, predictor: BasePredictor,
@@ -96,7 +103,8 @@ class SupConExperimentConfig(BaseModel):
     known_clusters: bool
 
 
-def run_single_supcon_experiment(experiment_config: SupConExperimentConfig):
+def run_single_supcon_experiment(experiment_config: SupConExperimentConfig,
+                                 arguments: ExperimentsArgumentParser):
     known_clusters = experiment_config.known_clusters
     standardizer = WDCDatasetStandardizer(experiment_config.stand_path) if known_clusters \
         else RelationalDatasetStandardizer(experiment_config.stand_path)
@@ -109,16 +117,19 @@ def run_single_supcon_experiment(experiment_config: SupConExperimentConfig):
     preprocessor.preprocess(original_location=standardizer.config.target_location,
                             target_location=default_preproc_target)
 
+    if arguments.no_train:
+        return
+
     pretrain_train_set = pd.read_csv(os.path.join(default_preproc_target, 'pretrain-train.csv'))
     pretrain_valid_set = pd.read_csv(os.path.join(default_preproc_target, 'pretrain-valid.csv'))
     train_set = pd.read_csv(os.path.join(default_preproc_target, 'train.csv'))
     valid_set = pd.read_csv(os.path.join(default_preproc_target, 'valid.csv'))
     test_set = pd.read_csv(os.path.join(default_preproc_target, 'test.csv'))
 
-    predictor = ContrastivePredictor(config_path=experiment_config.predictor_path, report=True, seed=42)
+    predictor = ContrastivePredictor(config_path=experiment_config.predictor_path, report=not arguments.debug, seed=42)
     predictor.pretrain(pretrain_set=pretrain_train_set, valid_set=pretrain_valid_set,
-                       source_aware_sampling=not known_clusters)
-    predictor.train(train_set, valid_set)
+                       source_aware_sampling=not known_clusters, debug=arguments.debug)
+    predictor.train(train_set, valid_set, debug=arguments.debug)
     print("Trained")
     f1 = predictor.test(test_set)
 
@@ -128,7 +139,7 @@ def run_single_supcon_experiment(experiment_config: SupConExperimentConfig):
         wandb.run.finish()
 
 
-def run_supcon_experiments():
+def run_supcon_experiments(arguments: ExperimentsArgumentParser):
     experiments = [
         {
             "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_medium_0.25.json'),
@@ -197,7 +208,7 @@ def run_supcon_experiments():
 
     for exp in experiments:
         experiment_config = SupConExperimentConfig.parse_obj(exp)
-        run_single_supcon_experiment(experiment_config)
+        run_single_supcon_experiment(experiment_config, arguments)
 
 
 def seed_all(seed: int):
@@ -208,6 +219,8 @@ def seed_all(seed: int):
 
 
 if __name__ == "__main__":
+    args = ExperimentsArgumentParser().parse_args()
+
     print(os.getcwd())
     seed_all(42)
-    run_supcon_experiments()
+    run_supcon_experiments(args)

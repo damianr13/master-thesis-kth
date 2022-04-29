@@ -1,3 +1,4 @@
+import math
 import os
 from abc import ABC
 from typing import Dict, TypeVar, Generic
@@ -20,16 +21,15 @@ class BaseStandardizer(BasePreprocessor, Generic[T], ABC):
         right_matching_ids = df[df['left_id'].isin(left_ids) & (df['label'] == 1)]['right_id'] \
             .unique()
         right_matching_ids = pd.Series(right_matching_ids)
+        right_ids = right_matching_ids.sample(frac=self.config.train_sample_frac)
 
         right_all_ids = pd.Series(df['right_id'].unique())
 
-        already_sampled_frac = len(right_matching_ids) / len(right_all_ids)
-        if already_sampled_frac > self.config.train_sample_frac:
-            right_ids = right_matching_ids.sample(frac=self.config.train_sample_frac / already_sampled_frac)
-        else:
-            right_non_matching_ids: pd.Series = right_all_ids[~right_all_ids.isin(right_matching_ids)]
-            to_sample = self.config.train_sample_frac - already_sampled_frac
-            right_ids = pd.concat([right_matching_ids, right_non_matching_ids.sample(frac=to_sample)])
+        already_sampled_frac = len(right_ids) / len(right_all_ids)
+        to_sample = self.config.train_sample_frac - already_sampled_frac
+
+        right_other_ids: pd.Series = right_all_ids[~right_all_ids.isin(right_ids)]
+        right_ids = pd.concat([right_ids, right_other_ids.sample(frac=to_sample)])
 
         return df[df['left_id'].isin(left_ids) & df['right_id'].isin(right_ids)]
 

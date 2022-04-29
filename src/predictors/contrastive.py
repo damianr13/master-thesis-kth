@@ -363,19 +363,21 @@ class ContrastivePredictor(BasePredictor):
             run.finish()
 
     def pretrain(self, pretrain_set: DataFrame, valid_set: DataFrame, source_aware_sampling: bool = True,
-                 checkpoint_path: Optional[str] = None) -> None:
+                 checkpoint_path: Optional[str] = None, debug: bool = False) -> None:
         train_dataset = ContrastivePretrainDatasetWithSourceAwareSampling(pretrain_df=pretrain_set)\
             if source_aware_sampling else ContrastivePretrainDataset(pretrain_df=pretrain_set)
         valid_dataset = ContrastivePretrainDatasetWithSourceAwareSampling(pretrain_df=valid_set)\
             if source_aware_sampling else ContrastivePretrainDataset(pretrain_df=pretrain_set)
 
         model = ContrastivePretrainModel(len_tokenizer=len(self.tokenizer), model=self.config.transformer_name)
+
+        num_epochs = self.config.pretrain_specific.epochs if not debug else 1
         training_args = TrainingArguments(output_dir=self.config.pretrain_specific.output,
                                           seed=self.seed,
                                           per_device_train_batch_size=self.config.pretrain_specific.batch_size,
                                           learning_rate=self.config.pretrain_specific.learning_rate,
                                           warmup_ratio=0.05,
-                                          num_train_epochs=self.config.pretrain_specific.epochs,
+                                          num_train_epochs=num_epochs,
                                           weight_decay=0.00,
                                           max_grad_norm=1.0,
                                           fp16=True,
@@ -435,19 +437,21 @@ class ContrastivePredictor(BasePredictor):
         self.trainer = Trainer(model=model, data_collator=collator,
                                compute_metrics=self.compute_metrics)
 
-    def train(self, train_set: DataFrame, valid_set: DataFrame) -> None:
+    def train(self, train_set: DataFrame, valid_set: DataFrame, debug: bool = False) -> None:
         train_dataset = ContrastiveClassificationDataset(df=train_set)
         eval_dataset = ContrastiveClassificationDataset(df=valid_set)
         model = ContrastiveClassifierModel(len_tokenizer=(len(self.tokenizer)),
                                            existing_transformer=self.transformer,
                                            model=self.config.transformer_name)
+
+        num_epochs = self.config.train_specific.epochs if not debug else 1
         training_args = TrainingArguments(
             output_dir=self.config.train_specific.output,
             per_device_train_batch_size=self.config.train_specific.batch_size,
             per_device_eval_batch_size=self.config.train_specific.batch_size,
             learning_rate=self.config.train_specific.learning_rate,
             warmup_ratio=0.05,
-            num_train_epochs=self.config.train_specific.epochs,
+            num_train_epochs=num_epochs,
             max_grad_norm=1.0,
             weight_decay=0.01,
             seed=self.seed,
