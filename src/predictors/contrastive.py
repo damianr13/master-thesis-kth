@@ -18,6 +18,7 @@ from transformers import AutoTokenizer, AutoModel, Trainer, TrainingArguments, P
     IntervalStrategy, SchedulerType, EarlyStoppingCallback
 
 from src import utils
+from src.main import ExperimentsArgumentParser
 from src.predictors.base import BasePredictor
 
 
@@ -49,7 +50,7 @@ class ContrastivePretrainDataset(Dataset):
 
     def __getitem__(self, idx):
         item = self.data.iloc[idx].copy()
-        positive = self.data[self.data['cluster_id'] == item['cluster_id']].train_sample_frac(1).iloc[0].copy()
+        positive = self.data[self.data['cluster_id'] == item['cluster_id']].sample(1).iloc[0].copy()
 
         return item, positive
 
@@ -107,7 +108,7 @@ class ContrastivePretrainDatasetWithSourceAwareSampling(Dataset):
         data_source = self.sources_map[self.source_list[data_source_index]]
 
         item = data_source.iloc[index].copy()
-        positive = data_source[data_source['cluster_id'] == item['cluster_id']].train_sample_frac(1).iloc[0].copy()
+        positive = data_source[data_source['cluster_id'] == item['cluster_id']].sample(1).iloc[0].copy()
 
         return item, positive
 
@@ -362,8 +363,8 @@ class ContrastivePredictor(BasePredictor):
         if run and finish_run:
             run.finish()
 
-    def pretrain(self, pretrain_set: DataFrame, valid_set: DataFrame, source_aware_sampling: bool = True,
-                 checkpoint_path: Optional[str] = None, debug: bool = False) -> None:
+    def pretrain(self, pretrain_set: DataFrame, valid_set: DataFrame, arguments: ExperimentsArgumentParser,
+                 source_aware_sampling: bool = True, checkpoint_path: Optional[str] = None) -> None:
         train_dataset = ContrastivePretrainDatasetWithSourceAwareSampling(pretrain_df=pretrain_set)\
             if source_aware_sampling else ContrastivePretrainDataset(pretrain_df=pretrain_set)
         valid_dataset = ContrastivePretrainDatasetWithSourceAwareSampling(pretrain_df=valid_set)\
@@ -371,7 +372,10 @@ class ContrastivePredictor(BasePredictor):
 
         model = ContrastivePretrainModel(len_tokenizer=len(self.tokenizer), model=self.config.transformer_name)
 
-        num_epochs = self.config.pretrain_specific.epochs if not debug else 1
+        num_epochs = self.config.pretrain_specific.epochs if not arguments.debug else 1
+        save_strategy = IntervalStrategy.EPOCH if arguments.save_checkpoints else None
+        load_best_model_at_end = arguments.save_checkpoints
+
         training_args = TrainingArguments(output_dir=self.config.pretrain_specific.output,
                                           seed=self.seed,
                                           per_device_train_batch_size=self.config.pretrain_specific.batch_size,
@@ -386,13 +390,13 @@ class ContrastivePredictor(BasePredictor):
                                           metric_for_best_model="loss",
                                           disable_tqdm=True,
                                           report_to=[self.report_to],
-                                          save_strategy=IntervalStrategy.EPOCH,
+                                          save_strategy=save_strategy,
                                           save_steps=10,
                                           eval_steps=10,
                                           overwrite_output_dir=True,
                                           lr_scheduler_type=SchedulerType.LINEAR,
                                           logging_strategy=IntervalStrategy.EPOCH,
-                                          load_best_model_at_end=True,
+                                          load_best_model_at_end=load_best_model_at_end,
                                           evaluation_strategy=IntervalStrategy.EPOCH)
 
         collator = ContrastivePretrainingDataCollator(tokenizer=self.tokenizer, max_length=self.config.max_tokens)
@@ -437,7 +441,8 @@ class ContrastivePredictor(BasePredictor):
         self.trainer = Trainer(model=model, data_collator=collator,
                                compute_metrics=self.compute_metrics)
 
-    def train(self, train_set: DataFrame, valid_set: DataFrame, debug: bool = False) -> None:
+    def train(self, train_set: DataFrame, valid_set: DataFrame,
+              arguments: ExperimentsArgumentParser = ExperimentsArgumentParser()) -> None:
         train_dataset = ContrastiveClassificationDataset(df=train_set)
         eval_dataset = ContrastiveClassificationDataset(df=valid_set)
         model = ContrastiveClassifierModel(len_tokenizer=(len(self.tokenizer)),
@@ -445,6 +450,9 @@ class ContrastivePredictor(BasePredictor):
                                            model=self.config.transformer_name)
 
         num_epochs = self.config.train_specific.epochs if not debug else 1
+        save_strategy = IntervalStrategy.EPOCH if arguments.save_checkpoints else None
+        load_best_model_at_end = arguments.save_checkpoints
+
         training_args = TrainingArguments(
             output_dir=self.config.train_specific.output,
             per_device_train_batch_size=self.config.train_specific.batch_size,
@@ -463,7 +471,7 @@ class ContrastivePredictor(BasePredictor):
             dataloader_num_workers=self.config.train_specific.loaders,
             gradient_accumulation_steps=self.config.train_specific.parallel_batches,
             report_to=[self.report_to],
-            save_strategy=IntervalStrategy.EPOCH,
+            save_strategy=save_strategy,
             lr_scheduler_type=SchedulerType.LINEAR,
             evaluation_strategy=IntervalStrategy.EPOCH,
             logging_strategy=IntervalStrategy.EPOCH,

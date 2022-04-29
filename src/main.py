@@ -25,6 +25,7 @@ from src.preprocess.standardize import RelationalDatasetStandardizer, WDCDataset
 class ExperimentsArgumentParser(Tap):
     no_train: bool = False
     debug: bool = False
+    save_checkpoints: bool = False
 
 
 def run_pipeline(stand_config: str, preproc_config: str, predictor: BasePredictor,
@@ -128,8 +129,8 @@ def run_single_supcon_experiment(experiment_config: SupConExperimentConfig,
 
     predictor = ContrastivePredictor(config_path=experiment_config.predictor_path, report=not arguments.debug, seed=42)
     predictor.pretrain(pretrain_set=pretrain_train_set, valid_set=pretrain_valid_set,
-                       source_aware_sampling=not known_clusters, debug=arguments.debug)
-    predictor.train(train_set, valid_set, debug=arguments.debug)
+                       source_aware_sampling=not known_clusters, arguments=arguments)
+    predictor.train(train_set, valid_set, arguments=arguments)
     print("Trained")
     f1 = predictor.test(test_set)
 
