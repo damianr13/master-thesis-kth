@@ -447,14 +447,19 @@ class ContrastivePredictor(BasePredictor):
                                train_dataset: ContrastiveClassificationDataset,
                                eval_dataset: ContrastiveClassificationDataset,
                                arguments: ExperimentsArgumentParser,
-                               output: str):
+                               output: str,
+                               learning_rate: Optional[float] = None,
+                               allow_early_stop: bool = True):
+        if not learning_rate:
+            learning_rate = self.config.train_specific.learning_rate
+
         num_epochs = self.config.train_specific.epochs if not arguments.debug else 1
 
         training_args = TrainingArguments(
             output_dir=output,
             per_device_train_batch_size=self.config.train_specific.batch_size,
             per_device_eval_batch_size=self.config.train_specific.batch_size,
-            learning_rate=self.config.train_specific.learning_rate,
+            learning_rate=learning_rate,
             warmup_ratio=0.05,
             num_train_epochs=num_epochs,
             max_grad_norm=1.0,
@@ -483,7 +488,7 @@ class ContrastivePredictor(BasePredictor):
                           data_collator=collator,
                           compute_metrics=self.compute_metrics)
 
-        if self.config.train_specific.early_stop_patience > 0:
+        if allow_early_stop and self.config.train_specific.early_stop_patience > 0:
             trainer.add_callback(EarlyStoppingCallback(
                 early_stopping_patience=self.config.train_specific.early_stop_patience))
         return trainer
@@ -511,7 +516,8 @@ class ContrastivePredictor(BasePredictor):
                     param.requires_grad = True
 
             output_train_2 = self.config.train_specific.output + "_2"
-            trainer2 = self._init_training_trainer(model, train_dataset, eval_dataset, arguments, output_train_2)
+            trainer2 = self._init_training_trainer(model, train_dataset, eval_dataset, arguments, output_train_2,
+                                                   allow_early_stop=False, learning_rate=1e-6)
             self.perform_training(trainer2, output=output_train_2, finish_run=False)
 
             self.trainer = trainer2
