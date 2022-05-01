@@ -135,13 +135,13 @@ def run_single_supcon_experiment(experiment_config: SupConExperimentConfig,
 
 def run_supcon_experiments(arguments: ExperimentsArgumentParser):
     experiments = [
-        {
-            "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_medium.json'),
-            "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'wdc_computers_medium.json'),
-            "predictor_path": os.path.join('configs', 'model_train', 'contrastive',
-                                           'unfreeze_no-aug_batch-pt128_wdc-computers-medium.json'),
-            "known_clusters": True
-        },
+        # {
+        #     "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_medium.json'),
+        #     "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'wdc_computers_medium.json'),
+        #     "predictor_path": os.path.join('configs', 'model_train', 'contrastive',
+        #                                    'unfreeze_no-aug_batch-pt128_wdc-computers-medium.json'),
+        #     "known_clusters": True
+        # },
         {
             "stand_path": os.path.join('configs', 'stands_tasks', 'amazon_google.json'),
             "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'amazon_google.json'),
@@ -149,13 +149,13 @@ def run_supcon_experiments(arguments: ExperimentsArgumentParser):
                                            'unfreeze_no-aug_batch-pt128_amazon-google.json'),
             "known_clusters": False
         },
-        {
-            "stand_path": os.path.join('configs', 'stands_tasks', 'abt_buy.json'),
-            "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'abt_buy.json'),
-            "predictor_path": os.path.join('configs', 'model_train', 'contrastive',
-                                           'unfreeze_no-aug_batch-pt128_abt-buy.json'),
-            "known_clusters": False
-        },
+        # {
+        #     "stand_path": os.path.join('configs', 'stands_tasks', 'abt_buy.json'),
+        #     "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'abt_buy.json'),
+        #     "predictor_path": os.path.join('configs', 'model_train', 'contrastive',
+        #                                    'unfreeze_no-aug_batch-pt128_abt-buy.json'),
+        #     "known_clusters": False
+        # },
     ]
 
     for exp in experiments:
