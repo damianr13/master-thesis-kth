@@ -35,6 +35,7 @@ class DeepLearningHyperparameters(BaseModel):
 
 class ContrastiveClassifierConfig(BaseModel):
     frozen: bool = False
+    unfreeze: bool = False
     augment: bool = False
     dataset_name: str = 'unknown'
     transformer_name: str = 'distilbert-base-uncased'
@@ -344,8 +345,8 @@ class ContrastivePredictor(BasePredictor):
         run = None
         if self.report:
             run_config = self.config.dict()
-            run_config['current_target'] = 'pretrain'
             output_split = output.split('/')
+            run_config['current_target'] = output_split[-1]
             run_name = output_split[-2] + '_' + output_split[-1]
             run = wandb.init(project="master-thesis", entity="damianr13", config=run_config, name=run_name)
 
@@ -442,18 +443,15 @@ class ContrastivePredictor(BasePredictor):
         self.trainer = Trainer(model=model, data_collator=collator,
                                compute_metrics=self.compute_metrics)
 
-    def train(self, train_set: DataFrame, valid_set: DataFrame,
-              arguments: ExperimentsArgumentParser = ExperimentsArgumentParser()) -> None:
-        train_dataset = ContrastiveClassificationDataset(df=train_set)
-        eval_dataset = ContrastiveClassificationDataset(df=valid_set)
-        model = ContrastiveClassifierModel(len_tokenizer=(len(self.tokenizer)),
-                                           existing_transformer=self.transformer,
-                                           model=self.config.transformer_name)
-
+    def _init_training_trainer(self, model: ContrastiveClassifierModel,
+                               train_dataset: ContrastiveClassificationDataset,
+                               eval_dataset: ContrastiveClassificationDataset,
+                               arguments: ExperimentsArgumentParser,
+                               output: str):
         num_epochs = self.config.train_specific.epochs if not arguments.debug else 1
 
         training_args = TrainingArguments(
-            output_dir=self.config.train_specific.output,
+            output_dir=output,
             per_device_train_batch_size=self.config.train_specific.batch_size,
             per_device_eval_batch_size=self.config.train_specific.batch_size,
             learning_rate=self.config.train_specific.learning_rate,
@@ -488,12 +486,35 @@ class ContrastivePredictor(BasePredictor):
         if self.config.train_specific.early_stop_patience > 0:
             trainer.add_callback(EarlyStoppingCallback(
                 early_stopping_patience=self.config.train_specific.early_stop_patience))
+        return trainer
 
-        self.perform_training(trainer, output=self.config.train_specific.output, finish_run=False)
+    def train(self, train_set: DataFrame, valid_set: DataFrame,
+              arguments: ExperimentsArgumentParser = ExperimentsArgumentParser()) -> None:
+        train_dataset = ContrastiveClassificationDataset(df=train_set)
+        eval_dataset = ContrastiveClassificationDataset(df=valid_set)
+        model = ContrastiveClassifierModel(len_tokenizer=(len(self.tokenizer)),
+                                           existing_transformer=self.transformer,
+                                           model=self.config.transformer_name)
+        trainer = self._init_training_trainer(model, train_dataset, eval_dataset, arguments,
+                                              self.config.train_specific.output)
+
+        self.perform_training(trainer, output=self.config.train_specific.output, finish_run=True)
         if not arguments.save_checkpoints:
             shutil.rmtree(self.config.train_specific.output)
 
         self.trainer = trainer
+
+        # unfreeze the transformer after head has been initialized properly
+        if self.config.frozen and self.config.unfreeze:
+            if self.config.frozen:
+                for param in self.transformer.parameters():
+                    param.requires_grad = True
+
+            output_train_2 = self.config.train_specific.output + "_2"
+            trainer2 = self._init_training_trainer(model, train_dataset, eval_dataset, arguments, output_train_2)
+            self.perform_training(trainer2, output=output_train_2, finish_run=False)
+
+            self.trainer = trainer2
 
     def test(self, test_set: DataFrame) -> float:
         test_dataset = ContrastiveClassificationDataset(test_set)
