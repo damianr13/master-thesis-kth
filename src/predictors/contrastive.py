@@ -1,3 +1,4 @@
+import copy
 import os
 import random
 import shutil
@@ -439,7 +440,13 @@ class ContrastivePredictor(BasePredictor):
         loaded_existing = self._load_wandb_pretrain(arguments)
 
         if not loaded_existing:
+            report = self.report
+            if arguments.only_last_train:
+                self.report = False
+
             self.perform_training(trainer, output=self.config.pretrain_specific.output, checkpoint_path=checkpoint_path)
+
+            self.report = report
             if not arguments.save_checkpoints:
                 shutil.rmtree(self.config.pretrain_specific.output)
 
@@ -478,22 +485,24 @@ class ContrastivePredictor(BasePredictor):
                                eval_dataset: ContrastiveClassificationDataset,
                                arguments: ExperimentsArgumentParser,
                                output: str,
-                               learning_rate: Optional[float] = None,
                                allow_early_stop: bool = True):
-        if not learning_rate:
-            learning_rate = self.config.train_specific.learning_rate
 
         num_epochs = self.config.train_specific.epochs if not arguments.debug else 1
+        learning_rate = utils.select_first_available(
+            [arguments.learn_rate, self.config.train_specific.learning_rate])
+        warmup_ratio = utils.select_first_available([arguments.warmup_ratio, 0.05])
+        batch_size = utils.select_first_available([arguments.batch_size, self.config.train_specific.batch_size])
+        weight_decay = utils.select_first_available([arguments.weight_decay, 0.01])
 
         training_args = TrainingArguments(
             output_dir=output,
-            per_device_train_batch_size=self.config.train_specific.batch_size,
-            per_device_eval_batch_size=self.config.train_specific.batch_size,
+            per_device_train_batch_size=batch_size,
+            per_device_eval_batch_size=batch_size,
             learning_rate=learning_rate,
-            warmup_ratio=0.05,
+            warmup_ratio=warmup_ratio,
             num_train_epochs=num_epochs,
             max_grad_norm=1.0,
-            weight_decay=0.01,
+            weight_decay=weight_decay,
             seed=self.seed,
             fp16=True,
             save_steps=10,
@@ -530,10 +539,24 @@ class ContrastivePredictor(BasePredictor):
         model = ContrastiveClassifierModel(len_tokenizer=(len(self.tokenizer)),
                                            existing_transformer=self.transformer,
                                            model=self.config.transformer_name)
-        trainer = self._init_training_trainer(model, train_dataset, eval_dataset, arguments,
+
+        # enforce config file settings for the first training
+        arguments_copy = copy.copy(arguments)
+        arguments_copy.learn_rate = None
+        arguments_copy.warmup_ratio = None
+        arguments_copy.weight_decay = None
+        arguments_copy.batch_size = None
+        trainer = self._init_training_trainer(model, train_dataset, eval_dataset, arguments_copy,
                                               self.config.train_specific.output)
 
+        report = self.report
+        if arguments.only_last_train and self.report:
+            # prevent reporting for intermediary training
+            self.report = False
+
         self.perform_training(trainer, output=self.config.train_specific.output, finish_run=True)
+
+        self.report = report
         if not arguments.save_checkpoints:
             shutil.rmtree(self.config.train_specific.output)
 
@@ -547,7 +570,7 @@ class ContrastivePredictor(BasePredictor):
 
             output_train_2 = self.config.train_specific.output + "_2"
             trainer2 = self._init_training_trainer(model, train_dataset, eval_dataset, arguments, output_train_2,
-                                                   allow_early_stop=False, learning_rate=1e-6)
+                                                   allow_early_stop=False)
             self.perform_training(trainer2, output=output_train_2, finish_run=False)
 
             self.trainer = trainer2

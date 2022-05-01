@@ -30,13 +30,9 @@ class BasePreprocessor(Generic[T], ABC):
     def _preprocess_all(self, df_for_location: Dict[str, DataFrame]) -> Dict[str, DataFrame]:
         return df_for_location
 
-    @staticmethod
-    def _select_first_available(values):
-        return next(item for item in values if item is not None)
-
     def preprocess(self, original_location: str = None, target_location: str = None):
-        original_location = self._select_first_available([self.config.original_location, original_location])
-        target_location = self._select_first_available([self.config.target_location, target_location])
+        original_location = utils.select_first_available([self.config.original_location, original_location])
+        target_location = utils.select_first_available([self.config.target_location, target_location])
         if not os.path.exists(target_location):
             os.makedirs(target_location)
 

@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 from pydantic import BaseModel
 from tap import Tap
@@ -9,6 +9,12 @@ class ExperimentsArgumentParser(Tap):
     debug: bool = False
     save_checkpoints: bool = False
     load_wandb_models: bool = False
+    only_last_train: bool = False  # Report only the last round of training to wandb for a sweep
+
+    learn_rate: Optional[float] = None
+    batch_size: Optional[int] = None
+    warmup_ratio: Optional[float] = None
+    weight_decay: Optional[float] = None
 
 
 class BasePreprocConfig(BaseModel):

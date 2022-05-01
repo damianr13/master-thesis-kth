@@ -11,3 +11,7 @@ def load_as_object(json_path: str, instantiator: Callable[[Dict], T]) -> T:
     # load json config file as object
     config_dict = json.loads(config_text)
     return instantiator(config_dict)
+
+
+def select_first_available(values):
+    return next(item for item in values if item is not None)
