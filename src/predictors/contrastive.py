@@ -467,25 +467,13 @@ class ContrastivePredictor(BasePredictor):
             for param in self.transformer.parameters():
                 param.requires_grad = False
 
-    def load_trained(self, checkpoint_path: Optional[str] = None, map_location: Optional[str] = None):
-        if not checkpoint_path:
-            checkpoint_path = os.path.join(self.config.train_specific.output, 'pytorch_model.bin')
-
-        checkpoint = torch.load(checkpoint_path, map_location=map_location)
-        model = ContrastiveClassifierModel(checkpoint['transformer.embeddings.word_embeddings.weight'].shape[0],
-                                           model=self.config.transformer_name)
-        model.load_state_dict(checkpoint)
-
-        collator = ContrastiveClassifierDataCollator(tokenizer=self.tokenizer, max_length=self.config.max_tokens)
-        self.trainer = Trainer(model=model, data_collator=collator,
-                               compute_metrics=self.compute_metrics)
-
     def _init_training_trainer(self, model: ContrastiveClassifierModel,
                                train_dataset: ContrastiveClassificationDataset,
                                eval_dataset: ContrastiveClassificationDataset,
                                arguments: ExperimentsArgumentParser,
                                output: str,
-                               allow_early_stop: bool = True):
+                               allow_early_stop: bool = True,
+                               report_overwrite: Optional[bool] = None):
 
         num_epochs = self.config.train_specific.epochs if not arguments.debug else 1
         learning_rate = utils.select_first_available(
@@ -493,6 +481,9 @@ class ContrastivePredictor(BasePredictor):
         warmup_ratio = utils.select_first_available([arguments.warmup_ratio, 0.05])
         batch_size = utils.select_first_available([arguments.batch_size, self.config.train_specific.batch_size])
         weight_decay = utils.select_first_available([arguments.weight_decay, 0.01])
+
+        report = utils.select_first_available([report_overwrite, self.report])
+        report_to = "wandb" if report else "none"
 
         training_args = TrainingArguments(
             output_dir=output,
@@ -511,7 +502,7 @@ class ContrastivePredictor(BasePredictor):
             disable_tqdm=True,
             dataloader_num_workers=self.config.train_specific.loaders,
             gradient_accumulation_steps=self.config.train_specific.parallel_batches,
-            report_to=[self.report_to],
+            report_to=[report_to],
             save_strategy=IntervalStrategy.EPOCH,
             lr_scheduler_type=SchedulerType.LINEAR,
             evaluation_strategy=IntervalStrategy.EPOCH,
@@ -532,6 +523,19 @@ class ContrastivePredictor(BasePredictor):
                 early_stopping_patience=self.config.train_specific.early_stop_patience))
         return trainer
 
+    def load_trained(self, checkpoint_path: Optional[str] = None, map_location: Optional[str] = None):
+        if not checkpoint_path:
+            checkpoint_path = os.path.join(self.config.train_specific.output, 'pytorch_model.bin')
+
+        checkpoint = torch.load(checkpoint_path, map_location=map_location)
+        model = ContrastiveClassifierModel(checkpoint['transformer.embeddings.word_embeddings.weight'].shape[0],
+                                           model=self.config.transformer_name)
+        model.load_state_dict(checkpoint)
+
+        collator = ContrastiveClassifierDataCollator(tokenizer=self.tokenizer, max_length=self.config.max_tokens)
+        self.trainer = Trainer(model=model, data_collator=collator,
+                               compute_metrics=self.compute_metrics)
+
     def train(self, train_set: DataFrame, valid_set: DataFrame,
               arguments: ExperimentsArgumentParser = ExperimentsArgumentParser()) -> None:
         train_dataset = ContrastiveClassificationDataset(df=train_set)
@@ -546,8 +550,10 @@ class ContrastivePredictor(BasePredictor):
         arguments_copy.warmup_ratio = None
         arguments_copy.weight_decay = None
         arguments_copy.batch_size = None
+
+        report_overwrite = False if arguments.only_last_train else None
         trainer = self._init_training_trainer(model, train_dataset, eval_dataset, arguments_copy,
-                                              self.config.train_specific.output)
+                                              self.config.train_specific.output, report_overwrite=report_overwrite)
 
         report = self.report
         if arguments.only_last_train and self.report:
