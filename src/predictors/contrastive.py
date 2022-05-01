@@ -367,14 +367,15 @@ class ContrastivePredictor(BasePredictor):
         if run and finish_run:
             run.finish()
 
-    def _load_wandb_pretrain(self, arguments: ExperimentsArgumentParser) -> bool:
+    @staticmethod
+    def _download_wandb_model(arguments: ExperimentsArgumentParser, target: str, output: str) -> Optional[str]:
         if not arguments.load_wandb_models:
-            return False
+            return None
 
         client = wandb.Api()
         previous_runs: Iterable[Run] = client.runs(path="damianr13/master-thesis", filters={
-            "config.pretrain_specific.output": self.config.pretrain_specific.output,
-            "config.current_target": 'pretrain'
+            f"config.{target}_specific.output": output,
+            "config.current_target": target
         })
 
         for run in previous_runs:
@@ -386,11 +387,9 @@ class ContrastivePredictor(BasePredictor):
                 artifact_dir = artifact.download()
                 model_checkpoint = os.path.join(artifact_dir, 'pytorch_model.bin')
                 if os.path.exists(model_checkpoint):
-                    self.load_pretrained(model_checkpoint)
-                    print(f'Successfully loaded artifact: {artifact.name}')
-                    return True
+                    return model_checkpoint
 
-        return False
+        return None
 
     def pretrain(self, pretrain_set: DataFrame, valid_set: DataFrame, arguments: ExperimentsArgumentParser,
                  source_aware_sampling: bool = True, checkpoint_path: Optional[str] = None) -> None:
@@ -437,9 +436,13 @@ class ContrastivePredictor(BasePredictor):
             trainer.add_callback(EarlyStoppingCallback(
                 early_stopping_patience=self.config.pretrain_specific.early_stop_patience))
 
-        loaded_existing = self._load_wandb_pretrain(arguments)
-
-        if not loaded_existing:
+        existing_checkpoint = self._download_wandb_model(arguments,
+                                                         target='pretrain',
+                                                         output=self.config.pretrain_specific.output)
+        if existing_checkpoint:
+            self.load_pretrained(existing_checkpoint)
+            print(f"Successfully loaded pretrained model: {existing_checkpoint}")
+        else:
             report = self.report
             if arguments.only_last_train:
                 self.report = False
@@ -555,18 +558,26 @@ class ContrastivePredictor(BasePredictor):
         trainer = self._init_training_trainer(model, train_dataset, eval_dataset, arguments_copy,
                                               self.config.train_specific.output, report_overwrite=report_overwrite)
 
-        report = self.report
-        if arguments.only_last_train and self.report:
-            # prevent reporting for intermediary training
-            self.report = False
+        existing_checkpoint = self._download_wandb_model(arguments,
+                                                         target='train',
+                                                         output=self.config.train_specific.output)
 
-        self.perform_training(trainer, output=self.config.train_specific.output, finish_run=True)
+        if existing_checkpoint:
+            self.load_trained(existing_checkpoint)
+            print(f"Successfully loaded trained model: {existing_checkpoint}")
+        else:
+            report = self.report
+            if arguments.only_last_train and self.report:
+                # prevent reporting for intermediary training
+                self.report = False
 
-        self.report = report
-        if not arguments.save_checkpoints:
-            shutil.rmtree(self.config.train_specific.output)
+            self.perform_training(trainer, output=self.config.train_specific.output, finish_run=True)
 
-        self.trainer = trainer
+            self.report = report
+            if not arguments.save_checkpoints:
+                shutil.rmtree(self.config.train_specific.output)
+
+            self.trainer = trainer
 
         # unfreeze the transformer after head has been initialized properly
         if self.config.frozen and self.config.unfreeze:
