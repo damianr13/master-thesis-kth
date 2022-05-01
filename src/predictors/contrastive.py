@@ -4,7 +4,7 @@ import random
 import shutil
 from abc import ABC
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Iterable
+from typing import Dict, List, Optional, Iterable, cast
 
 import pandas as pd
 import torch
@@ -586,7 +586,9 @@ class ContrastivePredictor(BasePredictor):
                     param.requires_grad = True
 
             output_train_2 = self.config.train_specific.output + "_2"
-            trainer2 = self._init_training_trainer(model, train_dataset, eval_dataset, arguments, output_train_2,
+            model = cast(ContrastiveClassifierModel, self.trainer.model)
+            trainer2 = self._init_training_trainer(model, train_dataset,
+                                                   eval_dataset, arguments, output_train_2,
                                                    allow_early_stop=False)
             self.perform_training(trainer2, output=output_train_2, finish_run=False)
 
