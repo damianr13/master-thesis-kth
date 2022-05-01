@@ -3,7 +3,7 @@ import random
 import shutil
 from abc import ABC
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Iterable
 
 import pandas as pd
 import torch
@@ -17,6 +17,7 @@ from torch.utils.data import Dataset
 from torch.utils.data.dataset import T_co
 from transformers import AutoTokenizer, AutoModel, Trainer, TrainingArguments, PreTrainedTokenizerBase, \
     IntervalStrategy, SchedulerType, EarlyStoppingCallback
+from wandb.apis.public import Run, Artifact
 
 from src import utils
 from src.preprocess.configs import ExperimentsArgumentParser
@@ -365,6 +366,31 @@ class ContrastivePredictor(BasePredictor):
         if run and finish_run:
             run.finish()
 
+    def _load_wandb_pretrain(self, arguments: ExperimentsArgumentParser) -> bool:
+        if not arguments.load_wandb_models:
+            return False
+
+        client = wandb.Api()
+        previous_runs: Iterable[Run] = client.runs(path="damianr13/master-thesis", filters={
+            "config.pretrain_specific.output": self.config.pretrain_specific.output,
+            "config.current_target": 'pretrain'
+        })
+
+        for run in previous_runs:
+            artifacts: Iterable[Artifact] = run.logged_artifacts()
+            for artifact in artifacts:
+                if artifact.type != 'model':
+                    continue
+
+                artifact_dir = artifact.download()
+                model_checkpoint = os.path.join(artifact_dir, 'pytorch_model.bin')
+                if os.path.exists(model_checkpoint):
+                    self.load_pretrained(model_checkpoint)
+                    print(f'Successfully loaded artifact: {artifact.name}')
+                    return True
+
+        return False
+
     def pretrain(self, pretrain_set: DataFrame, valid_set: DataFrame, arguments: ExperimentsArgumentParser,
                  source_aware_sampling: bool = True, checkpoint_path: Optional[str] = None) -> None:
         train_dataset = ContrastivePretrainDatasetWithSourceAwareSampling(pretrain_df=pretrain_set)\
@@ -410,11 +436,15 @@ class ContrastivePredictor(BasePredictor):
             trainer.add_callback(EarlyStoppingCallback(
                 early_stopping_patience=self.config.pretrain_specific.early_stop_patience))
 
-        self.perform_training(trainer, output=self.config.pretrain_specific.output, checkpoint_path=checkpoint_path)
-        if not arguments.save_checkpoints:
-            shutil.rmtree(self.config.pretrain_specific.output)
+        loaded_existing = self._load_wandb_pretrain(arguments)
 
-        self.transformer = model.transformer
+        if not loaded_existing:
+            self.perform_training(trainer, output=self.config.pretrain_specific.output, checkpoint_path=checkpoint_path)
+            if not arguments.save_checkpoints:
+                shutil.rmtree(self.config.pretrain_specific.output)
+
+            self.transformer = model.transformer
+
         if self.config.frozen:
             for param in self.transformer.parameters():
                 param.requires_grad = False

@@ -8,6 +8,7 @@ class ExperimentsArgumentParser(Tap):
     no_train: bool = False
     debug: bool = False
     save_checkpoints: bool = False
+    load_wandb_models: bool = False
 
 
 class BasePreprocConfig(BaseModel):
