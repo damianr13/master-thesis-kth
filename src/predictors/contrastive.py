@@ -154,6 +154,8 @@ class ContrastiveDataCollator(ABC):
 
 @dataclass
 class ContrastivePretrainingDataCollator(ContrastiveDataCollator):
+    augment: bool = False
+
     def __call__(self, x):
         features_left = [v[0]['text'] for v in x]
         features_right = [v[1]['text'] for v in x]
@@ -162,7 +164,12 @@ class ContrastivePretrainingDataCollator(ContrastiveDataCollator):
         batch_left = self.tokenize_features(features_left)
         batch_right = self.tokenize_features(features_right)
 
-        return self.collate_pair(batch_left, batch_right, labels)
+        result = self.collate_pair(batch_left, batch_right, labels)
+        if self.augment:
+            # take advantage of dropout augmentation during training
+            result = {k: torch.cat((v, v), dim=0) for k, v in result.items()}
+
+        return result
 
 
 @dataclass
@@ -425,7 +432,9 @@ class ContrastivePredictor(BasePredictor):
                                           load_best_model_at_end=True,
                                           evaluation_strategy=IntervalStrategy.EPOCH)
 
-        collator = ContrastivePretrainingDataCollator(tokenizer=self.tokenizer, max_length=self.config.max_tokens)
+        collator = ContrastivePretrainingDataCollator(tokenizer=self.tokenizer,
+                                                      max_length=self.config.max_tokens,
+                                                      augment=self.config.augment)
         trainer = Trainer(model=model,
                           train_dataset=train_dataset,
                           eval_dataset=valid_dataset,

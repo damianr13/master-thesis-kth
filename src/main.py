@@ -142,11 +142,18 @@ def run_supcon_experiments(arguments: ExperimentsArgumentParser):
         #                                    'unfreeze_no-aug_batch-pt128_wdc-computers-medium.json'),
         #     "known_clusters": True
         # },
+        # {
+        #     "stand_path": os.path.join('configs', 'stands_tasks', 'amazon_google.json'),
+        #     "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'amazon_google.json'),
+        #     "predictor_path": os.path.join('configs', 'model_train', 'contrastive',
+        #                                    'unfreeze_no-aug_batch-pt128_amazon-google.json'),
+        #     "known_clusters": False
+        # },
         {
             "stand_path": os.path.join('configs', 'stands_tasks', 'amazon_google.json'),
             "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'amazon_google.json'),
             "predictor_path": os.path.join('configs', 'model_train', 'contrastive',
-                                           'unfreeze_no-aug_batch-pt128_amazon-google.json'),
+                                           'unfreeze_aug-dropout_batch-pt64_amazon-google.json'),
             "known_clusters": False
         },
         # {
