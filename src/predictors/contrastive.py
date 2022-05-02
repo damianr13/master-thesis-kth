@@ -187,7 +187,7 @@ class ContrastivePretrainingDataCollator(ContrastiveDataCollator):
             aug_batch_left = self.tokenize_features(aug_features_left)
             aug_batch_right = self.tokenize_features(aug_features_right)
 
-            aug_result = {f'aug_{k}': v for k, v in self.collate_pair(aug_batch_left, aug_batch_right, [])}
+            aug_result = {f'aug_{k}': v for k, v in self.collate_pair(aug_batch_left, aug_batch_right, []).items()}
             aug_result.pop('aug_labels')
             result.update(aug_result)
 
