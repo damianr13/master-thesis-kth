@@ -6,6 +6,7 @@ from abc import ABC
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Iterable, cast
 
+import numpy as np
 import pandas as pd
 import torch
 import wandb
@@ -21,6 +22,7 @@ from transformers import AutoTokenizer, AutoModel, Trainer, TrainingArguments, P
 from wandb.apis.public import Run, Artifact
 
 from src import utils
+from src.augment import Augmenter
 from src.preprocess.configs import ExperimentsArgumentParser
 from src.predictors.base import BasePredictor
 
@@ -38,7 +40,8 @@ class DeepLearningHyperparameters(BaseModel):
 class ContrastiveClassifierConfig(BaseModel):
     frozen: bool = False
     unfreeze: bool = False
-    augment: bool = False
+    augment: str = "no"  # possible values: "no", "dropout", "mixda", "plain"
+    swap_offers: bool = False
     dataset_name: str = 'unknown'
     transformer_name: str = 'distilbert-base-uncased'
     max_tokens: int = 128
@@ -154,18 +157,41 @@ class ContrastiveDataCollator(ABC):
 
 @dataclass
 class ContrastivePretrainingDataCollator(ContrastiveDataCollator):
-    augment: bool = False
+    augment: str = "no"
+    swap_offers: bool = False
+    text_augmenter = Augmenter()
 
     def __call__(self, x):
         features_left = [v[0]['text'] for v in x]
         features_right = [v[1]['text'] for v in x]
 
         labels = [v[0]['cluster_id'] for v in x]
+
+        if self.swap_offers:
+            should_swap = random.choice([True, False])
+            if should_swap:
+                features_left, features_right = features_right, features_left
+
+        if self.augment == 'plain':
+            features_left = [self.text_augmenter.apply_aug(text) for text in features_left]
+            features_right = [self.text_augmenter.apply_aug(text) for text in features_right]
+
         batch_left = self.tokenize_features(features_left)
         batch_right = self.tokenize_features(features_right)
-
         result = self.collate_pair(batch_left, batch_right, labels)
-        if self.augment:
+
+        if self.augment == 'mixda':
+            aug_features_left = [self.text_augmenter.apply_aug(text) for text in features_left]
+            aug_features_right = [self.text_augmenter.apply_aug(text) for text in features_right]
+
+            aug_batch_left = self.tokenize_features(aug_features_left)
+            aug_batch_right = self.tokenize_features(aug_features_right)
+
+            aug_result = {f'aug_{k}': v for k, v in self.collate_pair(aug_batch_left, aug_batch_right, [])}
+            aug_result.pop('aug_labels')
+            result.update(aug_result)
+
+        if self.augment == "dropout":
             # take advantage of dropout augmentation during training
             result = {k: torch.cat((v, v), dim=0) for k, v in result.items()}
 
@@ -243,16 +269,29 @@ class AbstractContrastiveModel(nn.Module, ABC):
 
 
 class ContrastivePretrainModel(AbstractContrastiveModel):
-    def __init__(self, len_tokenizer: int, model: str):
+    def __init__(self, len_tokenizer: int, model: str, alpha_aug: float = 0.8):
         super().__init__()
         self.transformer = AutoModel.from_pretrained(model)
         self.transformer.resize_token_embeddings(len_tokenizer)
 
         self.criterion = SupConLoss()
+        self.alpha_aug = alpha_aug
 
-    def forward(self, input_ids_left, attention_mask_left, labels, input_ids_right, attention_mask_right):
+    def forward(self, input_ids_left, attention_mask_left, labels, input_ids_right, attention_mask_right,
+                aug_input_ids_left=None, aug_attention_mask_left=None,
+                aug_input_ids_right=None, aug_attention_mask_right=None):
         output_left, output_right = self.apply_transformer(input_ids_left, attention_mask_left,
                                                            input_ids_right, attention_mask_right)
+
+        # MixDA
+        if aug_input_ids_left and aug_attention_mask_left and aug_input_ids_right and aug_attention_mask_right:
+            aug_output_left, aug_output_right = self.apply_transformer(aug_input_ids_left, aug_attention_mask_left,
+                                                                       aug_input_ids_right, aug_attention_mask_right)
+
+            aug_lam = np.random.beta(self.alpha_aug, self.alpha_aug)
+
+            output_left = output_left * aug_lam + aug_output_left * (1.0 - aug_lam)
+            output_right = output_right * aug_lam + aug_output_right * (1.0 - aug_lam)
 
         output = torch.cat((output_left.unsqueeze(1), output_right.unsqueeze(1)), 1)
 
@@ -400,9 +439,9 @@ class ContrastivePredictor(BasePredictor):
 
     def pretrain(self, pretrain_set: DataFrame, valid_set: DataFrame, arguments: ExperimentsArgumentParser,
                  source_aware_sampling: bool = True, checkpoint_path: Optional[str] = None) -> None:
-        train_dataset = ContrastivePretrainDatasetWithSourceAwareSampling(pretrain_df=pretrain_set)\
+        train_dataset = ContrastivePretrainDatasetWithSourceAwareSampling(pretrain_df=pretrain_set) \
             if source_aware_sampling else ContrastivePretrainDataset(pretrain_df=pretrain_set)
-        valid_dataset = ContrastivePretrainDatasetWithSourceAwareSampling(pretrain_df=valid_set)\
+        valid_dataset = ContrastivePretrainDatasetWithSourceAwareSampling(pretrain_df=valid_set) \
             if source_aware_sampling else ContrastivePretrainDataset(pretrain_df=pretrain_set)
 
         model = ContrastivePretrainModel(len_tokenizer=len(self.tokenizer), model=self.config.transformer_name)
@@ -434,7 +473,8 @@ class ContrastivePredictor(BasePredictor):
 
         collator = ContrastivePretrainingDataCollator(tokenizer=self.tokenizer,
                                                       max_length=self.config.max_tokens,
-                                                      augment=self.config.augment)
+                                                      augment=self.config.augment,
+                                                      swap_offers=self.config.swap_offers)
         trainer = Trainer(model=model,
                           train_dataset=train_dataset,
                           eval_dataset=valid_dataset,

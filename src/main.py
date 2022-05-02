@@ -106,8 +106,10 @@ def run_single_supcon_experiment(experiment_config: SupConExperimentConfig,
     preprocessor = ContrastivePreprocessorKnownClusters(experiment_config.proc_path) if known_clusters \
         else ContrastivePreprocessorUnknownClusters(experiment_config.proc_path)
 
-    default_preproc_target = os.path.join('data', 'preprocessed', 'contrastive',
-                                          standardizer.config.target_location.split('/')[-1])
+    target_split = standardizer.config.target_location.split('/')
+    directory = target_split[-1] if target_split[-1] != '' else target_split[-2]
+    default_preproc_target = os.path.join('data', 'processed', 'contrastive', directory)
+
     preprocessor.preprocess(original_location=standardizer.config.target_location,
                             target_location=default_preproc_target)
 
@@ -153,7 +155,28 @@ def run_supcon_experiments(arguments: ExperimentsArgumentParser):
             "stand_path": os.path.join('configs', 'stands_tasks', 'amazon_google.json'),
             "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'amazon_google.json'),
             "predictor_path": os.path.join('configs', 'model_train', 'contrastive',
-                                           'unfreeze_aug-dropout_batch-pt64_amazon-google.json'),
+                                           'unfreeze_aug-dropout_swap_batch-pt64_amazon-google.json'),
+            "known_clusters": False
+        },
+        {
+            "stand_path": os.path.join('configs', 'stands_tasks', 'amazon_google.json'),
+            "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'amazon_google.json'),
+            "predictor_path": os.path.join('configs', 'model_train', 'contrastive',
+                                           'unfreeze_aug-mixda_swap_batch-pt64_amazon-google.json'),
+            "known_clusters": False
+        },
+        {
+            "stand_path": os.path.join('configs', 'stands_tasks', 'amazon_google.json'),
+            "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'amazon_google.json'),
+            "predictor_path": os.path.join('configs', 'model_train', 'contrastive',
+                                           'unfreeze_aug-plain_swap_batch-pt128_amazon-google.json'),
+            "known_clusters": False
+        },
+        {
+            "stand_path": os.path.join('configs', 'stands_tasks', 'amazon_google.json'),
+            "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'amazon_google.json'),
+            "predictor_path": os.path.join('configs', 'model_train', 'contrastive',
+                                           'unfreeze_no-aug_swap_batch-pt128_amazon-google.json'),
             "known_clusters": False
         },
         # {
