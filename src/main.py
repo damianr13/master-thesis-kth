@@ -155,28 +155,28 @@ def run_supcon_experiments(arguments: ExperimentsArgumentParser):
             "stand_path": os.path.join('configs', 'stands_tasks', 'amazon_google.json'),
             "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'amazon_google.json'),
             "predictor_path": os.path.join('configs', 'model_train', 'contrastive',
-                                           'unfreeze_aug-dropout_swap_batch-pt64_amazon-google.json'),
+                                           'frozen_aug-dropout_swap_batch-pt64_amazon-google.json'),
             "known_clusters": False
         },
         {
             "stand_path": os.path.join('configs', 'stands_tasks', 'amazon_google.json'),
             "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'amazon_google.json'),
             "predictor_path": os.path.join('configs', 'model_train', 'contrastive',
-                                           'unfreeze_aug-mixda_swap_batch-pt64_amazon-google.json'),
+                                           'frozen_aug-mixda_swap_batch-pt64_amazon-google.json'),
             "known_clusters": False
         },
         {
             "stand_path": os.path.join('configs', 'stands_tasks', 'amazon_google.json'),
             "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'amazon_google.json'),
             "predictor_path": os.path.join('configs', 'model_train', 'contrastive',
-                                           'unfreeze_aug-plain_swap_batch-pt128_amazon-google.json'),
+                                           'frozen_aug-plain_swap_batch-pt128_amazon-google.json'),
             "known_clusters": False
         },
         {
             "stand_path": os.path.join('configs', 'stands_tasks', 'amazon_google.json'),
             "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'amazon_google.json'),
             "predictor_path": os.path.join('configs', 'model_train', 'contrastive',
-                                           'unfreeze_no-aug_swap_batch-pt128_amazon-google.json'),
+                                           'frozen_no-aug_swap_batch-pt128_amazon-google.json'),
             "known_clusters": False
         },
         # {
