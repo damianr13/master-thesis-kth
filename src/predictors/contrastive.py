@@ -284,7 +284,8 @@ class ContrastivePretrainModel(AbstractContrastiveModel):
                                                            input_ids_right, attention_mask_right)
 
         # MixDA
-        if aug_input_ids_left and aug_attention_mask_left and aug_input_ids_right and aug_attention_mask_right:
+        if aug_input_ids_left is not None and aug_attention_mask_left is not None and \
+                aug_input_ids_right is not None and aug_attention_mask_right is not None:
             aug_output_left, aug_output_right = self.apply_transformer(aug_input_ids_left, aug_attention_mask_left,
                                                                        aug_input_ids_right, aug_attention_mask_right)
 
