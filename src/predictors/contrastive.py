@@ -4,7 +4,7 @@ import random
 import shutil
 from abc import ABC
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Iterable, cast
+from typing import Dict, List, Optional, Iterable, cast, Tuple
 
 import numpy as np
 import pandas as pd
@@ -18,7 +18,7 @@ from torch import nn
 from torch.utils.data import Dataset
 from torch.utils.data.dataset import T_co
 from transformers import AutoTokenizer, AutoModel, Trainer, TrainingArguments, PreTrainedTokenizerBase, \
-    IntervalStrategy, SchedulerType, EarlyStoppingCallback
+    IntervalStrategy, SchedulerType, EarlyStoppingCallback, PreTrainedModel
 from wandb.apis.public import Run, Artifact
 
 from src import utils
@@ -45,6 +45,7 @@ class ContrastiveClassifierConfig(BaseModel):
     dataset_name: str = 'unknown'
     transformer_name: str = 'distilbert-base-uncased'
     max_tokens: int = 128
+    adaptive_tokenization: bool = False
 
     pretrain_specific: DeepLearningHyperparameters = DeepLearningHyperparameters()
     train_specific: DeepLearningHyperparameters = DeepLearningHyperparameters()
@@ -250,7 +251,7 @@ class SupConLoss(nn.Module):
 
 
 class AbstractContrastiveModel(nn.Module, ABC):
-    transformer: nn.Module
+    transformer: PreTrainedModel
 
     def apply_transformer(self, input_ids_left, attention_mask_left, input_ids_right, attention_mask_right):
         output_left = self.transformer(input_ids_left, attention_mask_left)
@@ -269,10 +270,9 @@ class AbstractContrastiveModel(nn.Module, ABC):
 
 
 class ContrastivePretrainModel(AbstractContrastiveModel):
-    def __init__(self, len_tokenizer: int, model: str, alpha_aug: float = 0.8):
+    def __init__(self, transformer: PreTrainedModel, alpha_aug: float = 0.8):
         super().__init__()
-        self.transformer = AutoModel.from_pretrained(model)
-        self.transformer.resize_token_embeddings(len_tokenizer)
+        self.transformer = transformer
 
         self.criterion = SupConLoss()
         self.alpha_aug = alpha_aug
@@ -315,7 +315,7 @@ class ContrastiveClassifierModel(AbstractContrastiveModel):
     def __init__(self, len_tokenizer,
                  model: str,
                  checkpoint_path: Optional[str] = None,
-                 existing_transformer: Optional[nn.Module] = None):
+                 existing_transformer: Optional[PreTrainedModel] = None):
         super().__init__()
 
         if existing_transformer:
@@ -352,13 +352,14 @@ class ContrastiveClassifierModel(AbstractContrastiveModel):
 
 
 class ContrastivePredictor(BasePredictor):
-    transformer: nn.Module = None
+    transformer: PreTrainedModel = None
     trainer: Trainer
 
     def __init__(self, config_path: str, report: bool = False, seed: int = 42):
         super(ContrastivePredictor, self).__init__(name="contrastive")
         self.config: ContrastiveClassifierConfig = utils.load_as_object(
             config_path, ContrastiveClassifierConfig.parse_obj)
+
         self.tokenizer = AutoTokenizer.from_pretrained(self.config.transformer_name,
                                                        additional_special_tokens=('[COL]', '[VAL]'))
 
@@ -368,6 +369,9 @@ class ContrastivePredictor(BasePredictor):
 
         self._init_default_configs(config_path)
         self.fp16 = torch.cuda.is_available()
+
+        self.transformer: PreTrainedModel = AutoModel.from_pretrained(self.config.transformer_name)
+        self.transformer.resize_token_embeddings(len(self.tokenizer))
 
     def _init_default_configs(self, config_path: str):
         config_name = config_path.split('/')[-1][:-5]
@@ -439,6 +443,76 @@ class ContrastivePredictor(BasePredictor):
 
         return None
 
+    def perform_adaptive_tokenization(self, pretrain_set: DataFrame):
+        tokens_df = pd.DataFrame()
+        tokens_df['text_tokenized'] = pretrain_set['text'].apply(lambda x: self.tokenizer(x).tokens())
+
+        def unite_tokens(tokens: List[str], index: int) -> List[Tuple[str, Tuple[str]]]:
+            current_concat = tokens[index]
+            i = index - 1
+            result = []
+            current_seed = [tokens[index]]
+            while i > 0 and tokens[i + 1].startswith('##'):
+                current_concat = tokens[i] + current_concat[2:]
+                current_seed.insert(0, tokens[i])
+                result.append((current_concat, tuple(current_seed)))
+                i -= 1
+
+            return result
+
+        def extract_possible_concatenations(tokens: List[str]) -> List[str]:
+            result = []
+            for i in range(len(tokens) - 1):
+                if tokens[i + 1].startswith('##'):
+                    result += unite_tokens(tokens, i + 1)
+
+            return result
+
+        tokens_df['option'] = tokens_df['text_tokenized'].apply(extract_possible_concatenations)
+        tokens_df = tokens_df.explode('option')
+        tokens_df.dropna()
+        tokens_df = tokens_df.groupby('option').option.count().rename('count').reset_index()
+
+        present_at_least = len(pretrain_set) // 200
+        tokens_df = tokens_df[tokens_df['count'] >= present_at_least]
+
+        tokens_df['token'], tokens_df['seed'] = zip(*tokens_df['option'])
+        all_seeds = tokens_df['seed'].tolist()
+
+        clustered_seeds = {}  # keep the seed lists clustered by length
+        for seed in all_seeds:
+            cluster = len(seed)
+            if cluster not in clustered_seeds:
+                clustered_seeds[cluster] = []
+
+            clustered_seeds[cluster].append(seed)
+
+        useless_seeds = []  # these are the seeds for which a superset is also sampled
+        for k in clustered_seeds.keys():
+            if k + 1 not in clustered_seeds:
+                continue
+
+            for lower_rank_seed in clustered_seeds[k]:
+                for higher_rank_seed in clustered_seeds[k+1]:
+                    if set(lower_rank_seed).issubset(set(higher_rank_seed)):
+                        useless_seeds.append(lower_rank_seed)
+
+        tokens_df = tokens_df[~tokens_df['seed'].isin(useless_seeds)]
+        self.tokenizer.add_tokens(tokens_df['token'].tolist(), special_tokens=True)
+
+        vocab = self.tokenizer.get_vocab()
+        tokens_df['seed_numeric'] = tokens_df['seed'].apply(lambda x: [vocab[t] for t in x])
+        self.transformer.resize_token_embeddings(len(self.tokenizer))
+
+        token_composition = dict(zip(tokens_df['token'].tolist(), tokens_df['seed_numeric'].tolist()))
+        for token in token_composition.keys():
+            token_average = torch.zeros((1, self.transformer.embeddings.word_embeddings.weight.data.shape[1]))
+            for sub_token_id in token_composition[token]:
+                token_average += self.transformer.embeddings.word_embeddings.weight.data[sub_token_id, :]
+
+            token_average /= len(token_composition[token])
+            self.transformer.embeddings.word_embeddings.weight.data[vocab[token], :] = token_average
+
     def pretrain(self, pretrain_set: DataFrame, valid_set: DataFrame, arguments: ExperimentsArgumentParser,
                  source_aware_sampling: bool = True, checkpoint_path: Optional[str] = None) -> None:
         train_dataset = ContrastivePretrainDatasetWithSourceAwareSampling(pretrain_df=pretrain_set) \
@@ -446,7 +520,10 @@ class ContrastivePredictor(BasePredictor):
         valid_dataset = ContrastivePretrainDatasetWithSourceAwareSampling(pretrain_df=valid_set) \
             if source_aware_sampling else ContrastivePretrainDataset(pretrain_df=pretrain_set)
 
-        model = ContrastivePretrainModel(len_tokenizer=len(self.tokenizer), model=self.config.transformer_name)
+        if self.config.adaptive_tokenization:
+            self.perform_adaptive_tokenization(pretrain_set)
+
+        model = ContrastivePretrainModel(transformer=self.transformer)
 
         num_epochs = self.config.pretrain_specific.epochs if not arguments.debug else 1
 
@@ -512,8 +589,7 @@ class ContrastivePredictor(BasePredictor):
 
     def load_pretrained(self, checkpoint_path: str):
         checkpoint = torch.load(checkpoint_path)
-        model = ContrastivePretrainModel(checkpoint['transformer.embeddings.word_embeddings.weight'].shape[0],
-                                         self.config.transformer_name)
+        model = ContrastivePretrainModel(self.transformer)
         model.load_state_dict(checkpoint)
 
         self.transformer = model.transformer
