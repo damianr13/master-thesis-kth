@@ -367,6 +367,7 @@ class ContrastivePredictor(BasePredictor):
         self.seed = seed
 
         self._init_default_configs(config_path)
+        self.fp16 = torch.cuda.is_available()
 
     def _init_default_configs(self, config_path: str):
         config_name = config_path.split('/')[-1][:-5]
@@ -457,7 +458,7 @@ class ContrastivePredictor(BasePredictor):
                                           num_train_epochs=num_epochs,
                                           weight_decay=0.00,
                                           max_grad_norm=1.0,
-                                          fp16=True,
+                                          fp16=self.fp16,
                                           dataloader_num_workers=self.config.pretrain_specific.loaders,
                                           gradient_accumulation_steps=self.config.pretrain_specific.parallel_batches,
                                           metric_for_best_model="loss",
@@ -548,7 +549,7 @@ class ContrastivePredictor(BasePredictor):
             max_grad_norm=1.0,
             weight_decay=weight_decay,
             seed=self.seed,
-            fp16=True,
+            fp16=self.fp16,
             save_steps=10,
             eval_steps=10,
             overwrite_output_dir=True,
@@ -579,6 +580,9 @@ class ContrastivePredictor(BasePredictor):
     def load_trained(self, checkpoint_path: Optional[str] = None, map_location: Optional[str] = None):
         if not checkpoint_path:
             checkpoint_path = os.path.join(self.config.train_specific.output, 'pytorch_model.bin')
+
+        if map_location is None and not torch.cuda.is_available():
+            map_location = torch.device('cpu')
 
         checkpoint = torch.load(checkpoint_path, map_location=map_location)
         model = ContrastiveClassifierModel(checkpoint['transformer.embeddings.word_embeddings.weight'].shape[0],
@@ -621,7 +625,8 @@ class ContrastivePredictor(BasePredictor):
                 # prevent reporting for intermediary training
                 self.report = False
 
-            self.perform_training(trainer, output=self.config.train_specific.output, finish_run=True)
+            # only finish the run if we have the "unfreeze" argument, meaning another training round follows
+            self.perform_training(trainer, output=self.config.train_specific.output, finish_run=self.config.unfreeze)
 
             self.report = report
             if not arguments.save_checkpoints:
