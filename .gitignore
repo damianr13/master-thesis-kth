@@ -3,3 +3,6 @@ data/
 **/__pycache__/
 venv/
 output/
+src.egg-info/
+artifacts/
+notebooks/.ipynb_checkpoints/
