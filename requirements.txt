@@ -10,3 +10,4 @@ setuptools==62.0.0
 umap-learn==0.5.3
 typed-argument-parser==1.7.2
 nlpaug==1.1.10
+deepspeed==0.6.3
