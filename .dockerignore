@@ -1,0 +1,5 @@
+data/interim/
+data/processed/
+output/
+artifacts/
+notebooks/
