@@ -6,7 +6,7 @@
   "deepspeed": "configs/deepspeed/ds_config_zero2.json",
   "pretrain_specific": {
     "learning_rate": 5e-5,
-    "batch_size": 128,
+    "batch_size": 512,
     "epochs": 200,
     "loaders": 6,
     "parallel_batches": 1,
