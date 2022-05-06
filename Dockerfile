@@ -1,4 +1,4 @@
-FROM nvidia/cuda:11.6.0-base-ubuntu20.04
+FROM nvidia/cuda:11.4.0-base-ubuntu20.04
 
 ENV TZ=Europe/Stockholm
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
