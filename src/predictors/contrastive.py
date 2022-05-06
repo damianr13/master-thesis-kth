@@ -46,6 +46,7 @@ class ContrastiveClassifierConfig(BaseModel):
     transformer_name: str = 'distilbert-base-uncased'
     max_tokens: int = 128
     adaptive_tokenization: bool = False
+    deepspeed: Optional[str] = None
 
     pretrain_specific: DeepLearningHyperparameters = DeepLearningHyperparameters()
     train_specific: DeepLearningHyperparameters = DeepLearningHyperparameters()
@@ -554,7 +555,8 @@ class ContrastivePredictor(BasePredictor):
                                           lr_scheduler_type=SchedulerType.LINEAR,
                                           logging_strategy=IntervalStrategy.EPOCH,
                                           load_best_model_at_end=True,
-                                          evaluation_strategy=IntervalStrategy.EPOCH)
+                                          evaluation_strategy=IntervalStrategy.EPOCH,
+                                          deepspeed=self.config.deepspeed)
 
         collator = ContrastivePretrainingDataCollator(tokenizer=self.tokenizer,
                                                       max_length=self.config.max_tokens,
@@ -645,8 +647,10 @@ class ContrastivePredictor(BasePredictor):
             lr_scheduler_type=SchedulerType.LINEAR,
             evaluation_strategy=IntervalStrategy.EPOCH,
             logging_strategy=IntervalStrategy.EPOCH,
-            load_best_model_at_end=True
+            load_best_model_at_end=True,
+            deepspeed=self.config.deepspeed
         )
+
         collator = ContrastiveClassifierDataCollator(tokenizer=self.tokenizer, max_length=self.config.max_tokens)
 
         trainer = Trainer(model=model,

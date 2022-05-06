@@ -1,0 +1,23 @@
+{
+  "frozen": true,
+  "dataset_name": "abt_buy",
+  "transformer_name": "huawei-noah/TinyBERT_General_4L_312D",
+  "max_tokens": 128,
+  "deepspeed": "configs/deepspeed/ds_config_zero2.json",
+  "pretrain_specific": {
+    "learning_rate": 5e-5,
+    "batch_size": 128,
+    "epochs": 200,
+    "loaders": 6,
+    "parallel_batches": 1,
+    "early_stop_patience": -1
+  },
+  "train_specific": {
+    "learning_rate": 5e-4,
+    "batch_size": 128,
+    "epochs": 50,
+    "loaders": 6,
+    "parallel_batches": 1,
+    "early_stop_patience": 5
+  }
+}
