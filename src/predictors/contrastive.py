@@ -35,6 +35,8 @@ class DeepLearningHyperparameters(BaseModel):
     loaders: int = 4
     parallel_batches: int = 1
     early_stop_patience: int = 10
+    warmup_ratio: float = 0.05
+    weight_decay: float = 0.00
 
 
 class ContrastiveClassifierConfig(BaseModel):
@@ -50,6 +52,7 @@ class ContrastiveClassifierConfig(BaseModel):
 
     pretrain_specific: DeepLearningHyperparameters = DeepLearningHyperparameters()
     train_specific: DeepLearningHyperparameters = DeepLearningHyperparameters()
+    train_2_specific: DeepLearningHyperparameters = DeepLearningHyperparameters()
 
 
 class ContrastivePretrainDataset(Dataset):
@@ -538,9 +541,9 @@ class ContrastivePredictor(BasePredictor):
                                           seed=self.seed,
                                           per_device_train_batch_size=self.config.pretrain_specific.batch_size,
                                           learning_rate=self.config.pretrain_specific.learning_rate,
-                                          warmup_ratio=0.05,
+                                          warmup_ratio=self.config.pretrain_specific.warmup_ratio,
                                           num_train_epochs=num_epochs,
-                                          weight_decay=0.00,
+                                          weight_decay=self.config.pretrain_specific.weight_decay,
                                           max_grad_norm=1.0,
                                           fp16=self.fp16,
                                           dataloader_num_workers=self.config.pretrain_specific.loaders,
@@ -612,15 +615,16 @@ class ContrastivePredictor(BasePredictor):
                                eval_dataset: ContrastiveClassificationDataset,
                                arguments: ExperimentsArgumentParser,
                                output: str,
+                               train_config: DeepLearningHyperparameters,
                                allow_early_stop: bool = True,
                                report_overwrite: Optional[bool] = None):
 
-        num_epochs = self.config.train_specific.epochs if not arguments.debug else 1
+        num_epochs = train_config.epochs if not arguments.debug else 1
         learning_rate = utils.select_first_available(
-            [arguments.learn_rate, self.config.train_specific.learning_rate])
-        warmup_ratio = utils.select_first_available([arguments.warmup_ratio, 0.05])
-        batch_size = utils.select_first_available([arguments.batch_size, self.config.train_specific.batch_size])
-        weight_decay = utils.select_first_available([arguments.weight_decay, 0.01])
+            [arguments.learn_rate, train_config.learning_rate])
+        warmup_ratio = utils.select_first_available([arguments.warmup_ratio, train_config.warmup_ratio])
+        batch_size = utils.select_first_available([arguments.batch_size, train_config.batch_size])
+        weight_decay = utils.select_first_available([arguments.weight_decay, train_config.weight_decay])
 
         report = utils.select_first_available([report_overwrite, self.report])
         report_to = "wandb" if report else "none"
@@ -640,8 +644,8 @@ class ContrastivePredictor(BasePredictor):
             eval_steps=10,
             overwrite_output_dir=True,
             disable_tqdm=True,
-            dataloader_num_workers=self.config.train_specific.loaders,
-            gradient_accumulation_steps=self.config.train_specific.parallel_batches,
+            dataloader_num_workers=train_config.loaders,
+            gradient_accumulation_steps=train_config.parallel_batches,
             report_to=[report_to],
             save_strategy=IntervalStrategy.EPOCH,
             lr_scheduler_type=SchedulerType.LINEAR,
@@ -660,9 +664,9 @@ class ContrastivePredictor(BasePredictor):
                           data_collator=collator,
                           compute_metrics=self.compute_metrics)
 
-        if allow_early_stop and self.config.train_specific.early_stop_patience > 0:
+        if allow_early_stop and train_config.early_stop_patience > 0:
             trainer.add_callback(EarlyStoppingCallback(
-                early_stopping_patience=self.config.train_specific.early_stop_patience))
+                early_stopping_patience=train_config.early_stop_patience))
         return trainer
 
     def load_trained(self, checkpoint_path: Optional[str] = None, map_location: Optional[str] = None):
@@ -698,7 +702,9 @@ class ContrastivePredictor(BasePredictor):
 
         report_overwrite = False if arguments.only_last_train else None
         trainer = self._init_training_trainer(model, train_dataset, eval_dataset, arguments_copy,
-                                              self.config.train_specific.output, report_overwrite=report_overwrite)
+                                              self.config.train_specific.output,
+                                              train_config=self.config.train_specific,
+                                              report_overwrite=report_overwrite)
 
         existing_checkpoint = self._download_wandb_model(arguments,
                                                          target='train',
@@ -732,8 +738,11 @@ class ContrastivePredictor(BasePredictor):
 
             output_train_2 = self.config.train_specific.output + "_2"
             model = cast(ContrastiveClassifierModel, self.trainer.model)
+            train_config = self.config.train_2_specific if self.config.train_2_specific is not None \
+                else self.config.train_specific
             trainer2 = self._init_training_trainer(model, train_dataset,
                                                    eval_dataset, arguments, output_train_2,
+                                                   train_config=train_config,
                                                    allow_early_stop=False)
             self.perform_training(trainer2, output=output_train_2, finish_run=False, seed=self.TRAIN_2_SEED)
 
