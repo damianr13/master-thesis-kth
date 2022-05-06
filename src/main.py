@@ -19,6 +19,7 @@ from src.preprocess.model_specific.contrastive import ContrastivePreprocessorKno
     ContrastivePreprocessorUnknownClusters
 from src.preprocess.model_specific.word_cooc import WordCoocPreprocessor
 from src.preprocess.standardize import RelationalDatasetStandardizer, WDCDatasetStandardizer
+from src.utils import seed_all
 
 
 def run_pipeline(stand_config: str, preproc_config: str, predictor: BasePredictor,
@@ -165,16 +166,10 @@ def run_supcon_experiments(arguments: ExperimentsArgumentParser):
         run_single_supcon_experiment(experiment_config, arguments)
 
 
-def seed_all(seed: int):
-    torch.manual_seed(seed)
-    random.seed(seed)
-    np.random.seed(seed)
-    transformers.set_seed(seed)
-
-
 if __name__ == "__main__":
     args = ExperimentsArgumentParser().parse_args()
 
     print(os.getcwd())
     seed_all(42)
+    torch.cuda.seed_all()
     run_supcon_experiments(args)

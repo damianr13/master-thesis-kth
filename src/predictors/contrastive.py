@@ -352,6 +352,11 @@ class ContrastiveClassifierModel(AbstractContrastiveModel):
 
 
 class ContrastivePredictor(BasePredictor):
+
+    PRETRAIN_SEED = 13
+    TRAIN_SEED = 97
+    TRAIN_2_SEED = 23
+
     transformer: PreTrainedModel = None
     trainer: Trainer
 
@@ -395,7 +400,7 @@ class ContrastivePredictor(BasePredictor):
 
     def perform_training(self, trainer: Trainer, output: str, evaluate: bool = False,
                          checkpoint_path: Optional[str] = None,
-                         finish_run: bool = True):
+                         finish_run: bool = True, seed: int = 42):
         run = None
         if self.report:
             run_config = self.config.dict()
@@ -405,6 +410,7 @@ class ContrastivePredictor(BasePredictor):
             run = wandb.init(project="master-thesis", entity="damianr13", config=run_config, name=run_name)
 
         if not checkpoint_path:
+            utils.seed_all(seed)
             trainer.train()
         else:
             trainer.num_train_epochs = 50
@@ -575,7 +581,9 @@ class ContrastivePredictor(BasePredictor):
             if arguments.only_last_train:
                 self.report = False
 
-            self.perform_training(trainer, output=self.config.pretrain_specific.output, checkpoint_path=checkpoint_path)
+            self.perform_training(trainer,
+                                  output=self.config.pretrain_specific.output,
+                                  checkpoint_path=checkpoint_path, seed=self.PRETRAIN_SEED)
 
             self.report = report
             if not arguments.save_checkpoints:
@@ -702,7 +710,9 @@ class ContrastivePredictor(BasePredictor):
                 self.report = False
 
             # only finish the run if we have the "unfreeze" argument, meaning another training round follows
-            self.perform_training(trainer, output=self.config.train_specific.output, finish_run=self.config.unfreeze)
+            self.perform_training(trainer,
+                                  output=self.config.train_specific.output,
+                                  finish_run=self.config.unfreeze, seed=self.TRAIN_SEED)
 
             self.report = report
             if not arguments.save_checkpoints:
@@ -721,7 +731,7 @@ class ContrastivePredictor(BasePredictor):
             trainer2 = self._init_training_trainer(model, train_dataset,
                                                    eval_dataset, arguments, output_train_2,
                                                    allow_early_stop=False)
-            self.perform_training(trainer2, output=output_train_2, finish_run=False)
+            self.perform_training(trainer2, output=output_train_2, finish_run=False, seed=self.TRAIN_2_SEED)
 
             self.trainer = trainer2
 
