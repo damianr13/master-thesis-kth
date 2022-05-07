@@ -100,6 +100,8 @@ class SupConExperimentConfig(BaseModel):
 
 def run_single_supcon_experiment(experiment_config: SupConExperimentConfig,
                                  arguments: ExperimentsArgumentParser):
+    seed_all(42)
+
     known_clusters = experiment_config.known_clusters
     standardizer = WDCDatasetStandardizer(experiment_config.stand_path) if known_clusters \
         else RelationalDatasetStandardizer(experiment_config.stand_path)
