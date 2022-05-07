@@ -13,8 +13,9 @@ RUN python -m pip -q install pip --upgrade
 COPY ./requirements.txt /home/root/thesis/requirements.txt
 WORKDIR /home/root/thesis
 RUN ls
-RUN python -m pip install -r requirements.txt && python setup.py install
+RUN python -m pip install -r requirements.txt
 
 COPY . /home/root/thesis
+RUN python setup.py install
 
 CMD python -m src.main --debug
