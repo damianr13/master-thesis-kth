@@ -291,12 +291,13 @@ class AbstractContrastiveModel(nn.Module, ABC):
 
 
 class ContrastivePretrainModel(AbstractContrastiveModel):
-    def __init__(self, transformer: PreTrainedModel, alpha_aug: float = 0.8):
+    def __init__(self, transformer: PreTrainedModel, alpha_aug: float = 0.8, debug: bool = False):
         super().__init__()
         self.transformer = transformer
 
         self.criterion = SupConLoss()
         self.alpha_aug = alpha_aug
+        self.debug = debug
 
     def forward(self, input_ids_left, attention_mask_left, labels, input_ids_right, attention_mask_right,
                 aug_input_ids_left=None, aug_attention_mask_left=None,
@@ -550,7 +551,7 @@ class ContrastivePredictor(BasePredictor):
         if self.config.adaptive_tokenization:
             self.perform_adaptive_tokenization(pretrain_set)
 
-        model = ContrastivePretrainModel(transformer=self.transformer)
+        model = ContrastivePretrainModel(transformer=self.transformer, debug=arguments.debug)
 
         num_epochs = self.config.pretrain_specific.epochs if not arguments.debug else 1
 
