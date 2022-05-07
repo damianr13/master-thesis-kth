@@ -139,7 +139,7 @@ def run_single_supcon_experiment(experiment_config: SupConExperimentConfig,
 def run_supcon_experiments(arguments: ExperimentsArgumentParser):
     experiments = [
         {
-            "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_medium_0.50'),
+            "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_medium_0.50.json'),
             "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'wdc_computers_medium.json'),
             "predictor_path": os.path.join('configs', 'model_train', 'contrastive', 'sampled',
                                            'frozen_no-aug_batch-pt128_sample50_wdc-computers-medium.json'),
@@ -154,7 +154,7 @@ def run_supcon_experiments(arguments: ExperimentsArgumentParser):
             "known_clusters": True
         },
         {
-            "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_medium_0.50'),
+            "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_medium_0.50.json'),
             "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'wdc_computers_medium.json'),
             "predictor_path": os.path.join('configs', 'model_train', 'contrastive', 'sampled',
                                            'frozen_aug-mixda_swap_batch-pt64_sample50_wdc-computers-medium.json'),
