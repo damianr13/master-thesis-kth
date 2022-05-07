@@ -10,7 +10,7 @@ RUN ln -s /usr/bin/python3.9 /usr/bin/python
 # upgrade pip
 RUN python -m pip -q install pip --upgrade
 
-COPY ./requirements.txt /home/root/thesis/requirements.text
+COPY ./requirements.txt /home/root/thesis/requirements.txt
 WORKDIR /home/root/thesis
 RUN ls
 RUN python -m pip install -r requirements.txt && python setup.py install
