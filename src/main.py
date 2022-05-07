@@ -10,6 +10,7 @@ import transformers
 import wandb
 from pydantic import BaseModel
 
+from src.performance.watcher import PerformanceWatcher
 from src.predictors.base import BasePredictor
 from src.predictors.contrastive import ContrastivePredictor
 from src.predictors.dummy import AllMatchPredictor, NoMatchPredictor, BalancedPredictor, ClassDistributionAwarePredictor
@@ -186,3 +187,6 @@ if __name__ == "__main__":
     end = datetime.now()
 
     print(f"Execution took {end - start} ms")
+
+    if args.debug:
+        PerformanceWatcher.get_instance().print_stats()
