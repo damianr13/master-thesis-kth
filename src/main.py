@@ -1,5 +1,6 @@
 import os
 import random
+from datetime import datetime
 from typing import Callable, Tuple, Optional
 
 import numpy as np
@@ -126,8 +127,13 @@ def run_single_supcon_experiment(experiment_config: SupConExperimentConfig,
     test_set = pd.read_csv(os.path.join(default_preproc_target, 'test.csv'))
 
     predictor = ContrastivePredictor(config_path=experiment_config.predictor_path, report=not arguments.debug, seed=42)
+    pretrain_start = datetime.now()
     predictor.pretrain(pretrain_set=pretrain_train_set, valid_set=pretrain_valid_set,
                        source_aware_sampling=not known_clusters, arguments=arguments)
+    pretrain_end = datetime.now()
+
+    print(f'Pretrain took {pretrain_end - pretrain_start}')
+
     predictor.train(train_set, valid_set, arguments=arguments)
     print("Trained")
     f1 = predictor.test(test_set)
@@ -140,13 +146,13 @@ def run_single_supcon_experiment(experiment_config: SupConExperimentConfig,
 
 def run_supcon_experiments(arguments: ExperimentsArgumentParser):
     experiments = [
-        {
-            "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_medium_0.50.json'),
-            "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'wdc_computers_medium.json'),
-            "predictor_path": os.path.join('configs', 'model_train', 'contrastive', 'sampled',
-                                           'frozen_no-aug_batch-pt128_sample50_wdc-computers-medium.json'),
-            "known_clusters": True
-        },
+        # {
+        #     "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_medium_0.50.json'),
+        #     "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'wdc_computers_medium.json'),
+        #     "predictor_path": os.path.join('configs', 'model_train', 'contrastive', 'sampled',
+        #                                    'frozen_no-aug_batch-pt128_sample50_wdc-computers-medium.json'),
+        #     "known_clusters": True
+        # },
         {
             "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_medium_0.50.json'),
             "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'wdc_computers_medium.json'),
@@ -155,13 +161,13 @@ def run_supcon_experiments(arguments: ExperimentsArgumentParser):
                                                                                     '_wdc-computers-medium.json'),
             "known_clusters": True
         },
-        {
-            "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_medium_0.50.json'),
-            "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'wdc_computers_medium.json'),
-            "predictor_path": os.path.join('configs', 'model_train', 'contrastive', 'sampled',
-                                           'frozen_aug-mixda_swap_batch-pt64_sample50_wdc-computers-medium.json'),
-            "known_clusters": True
-        }
+        # {
+        #     "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_medium_0.50.json'),
+        #     "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'wdc_computers_medium.json'),
+        #     "predictor_path": os.path.join('configs', 'model_train', 'contrastive', 'sampled',
+        #                                    'frozen_aug-mixda_swap_batch-pt64_sample50_wdc-computers-medium.json'),
+        #     "known_clusters": True
+        # }
     ]
 
     for exp in experiments:
@@ -170,9 +176,13 @@ def run_supcon_experiments(arguments: ExperimentsArgumentParser):
 
 
 if __name__ == "__main__":
+    start = datetime.now()
     args = ExperimentsArgumentParser().parse_args()
 
     print(os.getcwd())
     seed_all(42)
     torch.cuda.seed_all()
     run_supcon_experiments(args)
+    end = datetime.now()
+
+    print(f"Execution took {end - start} ms")

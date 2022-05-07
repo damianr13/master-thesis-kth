@@ -23,6 +23,7 @@ from wandb.apis.public import Run, Artifact
 
 from src import utils
 from src.augment import Augmenter
+from src.performance.watcher import PerformanceWatcher, ExecutionSegment
 from src.preprocess.configs import ExperimentsArgumentParser
 from src.predictors.base import BasePredictor
 
@@ -141,13 +142,22 @@ class ContrastiveClassificationDataset(Dataset):
 class ContrastiveDataCollator(ABC):
     tokenizer: PreTrainedTokenizerBase
     max_length: int = 128
+    debug: bool = False
 
     def tokenize_features(self, features: List[str]):
-        return self.tokenizer(features,
-                              padding=True,
-                              truncation=True,
-                              max_length=self.max_length,
-                              return_tensors="pt")
+        if self.debug:
+            PerformanceWatcher.get_instance().enter_segment(ExecutionSegment.TOKENIZING)
+
+        result = self.tokenizer(features,
+                                padding=True,
+                                truncation=True,
+                                max_length=self.max_length,
+                                return_tensors="pt")
+
+        if self.debug:
+            PerformanceWatcher.get_instance().exit_segment()
+
+        return result
 
     @staticmethod
     def collate_pair(batch_left, batch_right, labels):
@@ -256,13 +266,20 @@ class SupConLoss(nn.Module):
 
 class AbstractContrastiveModel(nn.Module, ABC):
     transformer: PreTrainedModel
+    debug: bool = False
 
     def apply_transformer(self, input_ids_left, attention_mask_left, input_ids_right, attention_mask_right):
+        if self.debug:
+            PerformanceWatcher.get_instance().enter_segment(ExecutionSegment.MODEL_FEEDFORWARD)
+
         output_left = self.transformer(input_ids_left, attention_mask_left)
         output_right = self.transformer(input_ids_right, attention_mask_right)
 
         output_left = self.mean_pooling(output_left, attention_mask_left)
         output_right = self.mean_pooling(output_right, attention_mask_right)
+
+        if self.debug:
+            PerformanceWatcher.get_instance().exit_segment()
 
         return output_left, output_right
 
@@ -564,7 +581,8 @@ class ContrastivePredictor(BasePredictor):
         collator = ContrastivePretrainingDataCollator(tokenizer=self.tokenizer,
                                                       max_length=self.config.max_tokens,
                                                       augment=self.config.augment,
-                                                      swap_offers=self.config.swap_offers)
+                                                      swap_offers=self.config.swap_offers,
+                                                      debug=arguments.debug)
         trainer = Trainer(model=model,
                           train_dataset=train_dataset,
                           eval_dataset=valid_dataset,
@@ -655,7 +673,9 @@ class ContrastivePredictor(BasePredictor):
             deepspeed=self.config.deepspeed
         )
 
-        collator = ContrastiveClassifierDataCollator(tokenizer=self.tokenizer, max_length=self.config.max_tokens)
+        collator = ContrastiveClassifierDataCollator(tokenizer=self.tokenizer,
+                                                     max_length=self.config.max_tokens,
+                                                     debug=arguments.debug)
 
         trainer = Trainer(model=model,
                           args=training_args,
@@ -681,7 +701,9 @@ class ContrastivePredictor(BasePredictor):
                                            model=self.config.transformer_name)
         model.load_state_dict(checkpoint)
 
-        collator = ContrastiveClassifierDataCollator(tokenizer=self.tokenizer, max_length=self.config.max_tokens)
+        # no sense of passing debug flag here since the model is only loaded and not trained
+        collator = ContrastiveClassifierDataCollator(tokenizer=self.tokenizer,
+                                                     max_length=self.config.max_tokens)
         self.trainer = Trainer(model=model, data_collator=collator,
                                compute_metrics=self.compute_metrics)
 
