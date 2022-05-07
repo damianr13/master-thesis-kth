@@ -151,7 +151,7 @@ def run_supcon_experiments(arguments: ExperimentsArgumentParser):
             "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_medium_0.50.json'),
             "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'wdc_computers_medium.json'),
             "predictor_path": os.path.join('configs', 'model_train', 'contrastive', 'sampled'
-                                           'frozen_no-aug_batch-pt128_adaptive-tokenization_sample50_'
+                                           'frozen_no-aug_batch-pt128_adaptive-tokenization_sample50'
                                                                                     '_wdc-computers-medium.json'),
             "known_clusters": True
         },
