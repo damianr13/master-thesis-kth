@@ -1,3 +1,4 @@
+import threading
 import warnings
 from datetime import datetime, timedelta
 from enum import Enum
@@ -11,6 +12,7 @@ class ExecutionSegment(Enum):
 
 class PerformanceWatcher:
     __instance = None
+    _lock = threading.Lock()
 
     current_segment: Optional[ExecutionSegment] = None
     current_segment_start: Optional
@@ -19,13 +21,14 @@ class PerformanceWatcher:
 
     @staticmethod
     def get_instance():
-        if PerformanceWatcher.__instance is None:
-            PerformanceWatcher.__instance = PerformanceWatcher()
+        with PerformanceWatcher._lock:
+            if PerformanceWatcher.__instance is None:
+                PerformanceWatcher.__instance = PerformanceWatcher()
 
-        return PerformanceWatcher.__instance
+            return PerformanceWatcher.__instance
 
     def __init__(self):
-        if PerformanceWatcher.__instance is None:
+        if PerformanceWatcher.__instance is not None:
             raise Exception("This class is a singleton")
 
         self.stats = {k: timedelta(0) for k in ExecutionSegment}
