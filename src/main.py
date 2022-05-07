@@ -139,31 +139,25 @@ def run_single_supcon_experiment(experiment_config: SupConExperimentConfig,
 def run_supcon_experiments(arguments: ExperimentsArgumentParser):
     experiments = [
         {
-            "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_small.json'),
-            "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'wdc_computers_small.json'),
-            "predictor_path": os.path.join('configs', 'model_train', 'contrastive',
-                                           'frozen_no-aug_batch-pt128_wdc-computers-small.json'),
+            "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_medium_0.50'),
+            "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'wdc_computers_medium.json'),
+            "predictor_path": os.path.join('configs', 'model_train', 'contrastive', 'sampled',
+                                           'frozen_no-aug_batch-pt128_sample50_wdc-computers-medium.json'),
             "known_clusters": True
         },
         {
-            "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_small.json'),
-            "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'wdc_computers_small.json'),
-            "predictor_path": os.path.join('configs', 'model_train', 'contrastive',
-                                           'frozen_no-aug_batch-pt128_adaptive-tokenization_wdc-computers-small.json'),
+            "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_medium_0.50.json'),
+            "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'wdc_computers_medium.json'),
+            "predictor_path": os.path.join('configs', 'model_train', 'contrastive', 'sampled'
+                                           'frozen_no-aug_batch-pt128_adaptive-tokenization_sample50_'
+                                                                                    '_wdc-computers-medium.json'),
             "known_clusters": True
         },
         {
-            "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_small.json'),
-            "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'wdc_computers_small.json'),
-            "predictor_path": os.path.join('configs', 'model_train', 'contrastive',
-                                           'frozen_aug-mixda_swap_batch-pt64_wdc-computers-small.json'),
-            "known_clusters": True
-        },
-        {
-            "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_small.json'),
-            "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'wdc_computers_small.json'),
-            "predictor_path": os.path.join('configs', 'model_train', 'contrastive',
-                                           "unfreeze_no-aug_batch-pt128_wdc-computers-small.json"),
+            "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_medium_0.50'),
+            "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'wdc_computers_medium.json'),
+            "predictor_path": os.path.join('configs', 'model_train', 'contrastive', 'sampled',
+                                           'frozen_aug-mixda_swap_batch-pt64_sample50_wdc-computers-medium.json'),
             "known_clusters": True
         }
     ]
