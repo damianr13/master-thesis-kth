@@ -18,4 +18,6 @@ RUN python -m pip install -r requirements.txt
 COPY . /home/root/thesis
 RUN python setup.py install
 
+ENV WANDB_LOG_MODEL=true
+
 CMD python -m src.main --debug
