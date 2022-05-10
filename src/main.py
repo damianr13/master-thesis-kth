@@ -1,6 +1,6 @@
 import os
 from datetime import datetime
-from typing import Callable, Tuple, Optional
+from typing import Callable, Tuple, Optional, List, Dict
 
 import pandas as pd
 import torch
@@ -10,12 +10,14 @@ from pydantic import BaseModel
 from src.performance.watcher import PerformanceWatcher
 from src.predictors.base import BasePredictor
 from src.predictors.contrastive import ContrastivePredictor
+from src.predictors.cross_encoders import DittoPredictor
 from src.predictors.dummy import AllMatchPredictor, NoMatchPredictor, BalancedPredictor, ClassDistributionAwarePredictor
 from src.predictors.word_cooc import WordCoocPredictor
-from src.preprocess.configs import ExperimentsArgumentParser
+from src.preprocess.configs import ExperimentsArgumentParser, BasePreprocConfig
 from src.preprocess.definitions import BasePreprocessor
 from src.preprocess.model_specific.contrastive import ContrastivePreprocessorKnownClusters, \
     ContrastivePreprocessorUnknownClusters
+from src.preprocess.model_specific.ditto import DittoPreprocessor
 from src.preprocess.model_specific.word_cooc import WordCoocPreprocessor
 from src.preprocess.standardize import RelationalDatasetStandardizer, WDCDatasetStandardizer
 from src.utils import seed_all
@@ -90,14 +92,48 @@ def run_baseline_experiments():
     wandb.log({"f1_scores": f1_table})
 
 
-class SupConExperimentConfig(BaseModel):
+class ExperimentConfig(BaseModel):
     stand_path: str
     proc_path: str
     predictor_path: str
     known_clusters: bool
 
 
-def run_single_supcon_experiment(experiment_config: SupConExperimentConfig,
+def run_single_ditto_experiment(experiment_config: ExperimentConfig,
+                                arguments: ExperimentsArgumentParser):
+    seed_all(42)
+    use_wdc = "wdc" in experiment_config.stand_path.split('/')[-1]
+    standardizer = WDCDatasetStandardizer(experiment_config.stand_path) if use_wdc \
+        else RelationalDatasetStandardizer(experiment_config.stand_path)
+    standardizer.preprocess()
+
+    preprocessor = DittoPreprocessor(config_path=experiment_config.proc_path)
+
+    target_split = standardizer.config.target_location.split('/')
+    directory = target_split[-1] if target_split[-1] != '' else target_split[-2]
+    default_preproc_target = os.path.join('data', 'processed', 'ditto', directory)
+
+    preprocessor.preprocess(original_location=standardizer.config.target_location,
+                            target_location=default_preproc_target)
+
+    if arguments.no_train:
+        return
+
+    train_set = pd.read_csv(os.path.join(default_preproc_target, 'train.csv'))
+    valid_set = pd.read_csv(os.path.join(default_preproc_target, 'valid.csv'))
+    test_set = pd.read_csv(os.path.join(default_preproc_target, 'test.csv'))
+
+    predictor = DittoPredictor(config_path=experiment_config.predictor_path, report=not arguments.debug, seed=42)
+    predictor.train(train_set, valid_set, arguments=arguments)
+
+    f1 = predictor.test(test_set)
+    print(f'Finished with resulting f1 {f1}')
+
+    if wandb.run:
+        wandb.run.finish()
+
+
+def run_single_supcon_experiment(experiment_config: ExperimentConfig,
                                  arguments: ExperimentsArgumentParser):
     seed_all(42)
 
@@ -125,51 +161,22 @@ def run_single_supcon_experiment(experiment_config: SupConExperimentConfig,
     test_set = pd.read_csv(os.path.join(default_preproc_target, 'test.csv'))
 
     predictor = ContrastivePredictor(config_path=experiment_config.predictor_path, report=not arguments.debug, seed=42)
-    pretrain_start = datetime.now()
     predictor.pretrain(pretrain_set=pretrain_train_set, valid_set=pretrain_valid_set,
                        source_aware_sampling=not known_clusters, arguments=arguments)
-    pretrain_end = datetime.now()
-
-    print(f'Pretrain took {pretrain_end - pretrain_start}')
-
     predictor.train(train_set, valid_set, arguments=arguments)
-    print("Trained")
     f1 = predictor.test(test_set)
-
     print(f'Finished with resulting f1 {f1}')
 
     if wandb.run:
         wandb.run.finish()
 
 
-def run_supcon_experiments(arguments: ExperimentsArgumentParser):
-    experiments = [
-        # {
-        #     "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_medium_0.50.json'),
-        #     "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'wdc_computers_medium.json'),
-        #     "predictor_path": os.path.join('configs', 'model_train', 'contrastive', 'sampled',
-        #                                    'frozen_no-aug_batch-pt128_sample50_wdc-computers-medium.json'),
-        #     "known_clusters": True
-        # },
-        {
-            "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_medium_0.50.json'),
-            "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'wdc_computers_medium.json'),
-            "predictor_path": os.path.join('configs', 'model_train', 'contrastive', 'sampled',
-                                           'unfreeze_no-aug_batch-pt128_sample50_wdc-computers-medium.json'),
-            "known_clusters": True
-        },
-        # {
-        #     "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_medium_0.50.json'),
-        #     "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'wdc_computers_medium.json'),
-        #     "predictor_path": os.path.join('configs', 'model_train', 'contrastive', 'sampled',
-        #                                    'frozen_aug-mixda_swap_batch-pt64_sample50_wdc-computers-medium.json'),
-        #     "known_clusters": True
-        # }
-    ]
-
+def run_experiments(arguments: ExperimentsArgumentParser,
+                    experiments: List[Dict],
+                    experiment_function: Callable[[ExperimentConfig, ExperimentsArgumentParser], None]):
     for exp in experiments:
-        experiment_config = SupConExperimentConfig.parse_obj(exp)
-        run_single_supcon_experiment(experiment_config, arguments)
+        experiment_config = ExperimentConfig.parse_obj(exp)
+        experiment_function(experiment_config, arguments)
 
 
 if __name__ == "__main__":
@@ -179,7 +186,18 @@ if __name__ == "__main__":
     print(os.getcwd())
     seed_all(42)
     torch.cuda.seed_all()
-    run_supcon_experiments(args)
+
+    ditto_experiments = [
+        {
+            "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_small.json'),
+            "proc_path": os.path.join('configs', 'model_specific', 'ditto', 'wdc_computers_small.json'),
+            "predictor_path": os.path.join('configs', 'model_train', 'ditto',
+                                           'wdc_computers_small.json'),
+            "known_clusters": True
+        },
+    ]
+
+    run_experiments(args, ditto_experiments, run_single_ditto_experiment)
     end = datetime.now()
 
     print(f"Execution took {end - start} ms")

@@ -1,0 +1,17 @@
+{
+  "split_files": {
+    "train.csv": "train.csv",
+    "test.csv": "test.csv",
+    "valid.csv": "valid.csv"
+  },
+  "relevant_columns": [
+    "title", "description", "specTableContent", "category"
+  ],
+  "column_lengths": {
+    "title": 30,
+    "description": 60,
+    "category": 8,
+    "specTableContent": 150
+  },
+  "label_column": "label"
+}

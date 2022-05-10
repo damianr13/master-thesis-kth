@@ -11,7 +11,7 @@ class WordCoocPreprocessor(NoColumnSelectionBasePreprocessor):
             .__init__(config_path=config_path,
                       config_instantiator=lambda d: ModelSpecificPreprocessConfig.parse_obj(d))
 
-    def _preprocess_one(self, df: DataFrame) -> DataFrame:
+    def preprocess_one(self, df: DataFrame) -> DataFrame:
         result = DataFrame()
 
         # concatenate all into one column, except for index and label

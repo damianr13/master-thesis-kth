@@ -1,53 +1,35 @@
 import copy
 import os
 import random
-import shutil
 from abc import ABC
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Iterable, cast, Tuple
+from typing import Dict, List, Optional, cast, Tuple
 
 import numpy as np
 import pandas as pd
 import torch
-import wandb
 from pandas import DataFrame
-from pydantic import BaseModel
-from sklearn.metrics import f1_score
 from torch import Tensor
 from torch import nn
 from torch.utils.data import Dataset
 from torch.utils.data.dataset import T_co
-from transformers import AutoTokenizer, AutoModel, Trainer, TrainingArguments, PreTrainedTokenizerBase, \
+from transformers import AutoModel, Trainer, TrainingArguments, PreTrainedTokenizerBase, \
     IntervalStrategy, SchedulerType, EarlyStoppingCallback, PreTrainedModel
-from wandb.apis.public import Run, Artifact
 
 from src import utils
 from src.augment import Augmenter
 from src.performance.watcher import PerformanceWatcher, ExecutionSegment
+from src.predictors.base import DeepLearningHyperparameters, TransformerLMPredictor, BaseTransformerClassifierConfig, \
+    ClassificationDataset
 from src.preprocess.configs import ExperimentsArgumentParser
-from src.predictors.base import BasePredictor
 
 
-class DeepLearningHyperparameters(BaseModel):
-    learning_rate: float = 5e-5
-    epochs: int = 200
-    batch_size: int = 64
-    output: str = None
-    loaders: int = 4
-    parallel_batches: int = 1
-    early_stop_patience: int = 10
-    warmup_ratio: float = 0.05
-    weight_decay: float = 0.00
-
-
-class ContrastiveClassifierConfig(BaseModel):
+class ContrastiveClassifierConfig(BaseTransformerClassifierConfig):
     frozen: bool = False
     unfreeze: bool = False
     augment: str = "no"  # possible values: "no", "dropout", "mixda", "plain"
     swap_offers: bool = False
     dataset_name: str = 'unknown'
-    transformer_name: str = 'distilbert-base-uncased'
-    max_tokens: int = 128
     adaptive_tokenization: bool = False
     deepspeed: Optional[str] = None
 
@@ -124,18 +106,6 @@ class ContrastivePretrainDatasetWithSourceAwareSampling(Dataset):
         positive = data_source[data_source['cluster_id'] == item['cluster_id']].sample(1).iloc[0].copy()
 
         return item, positive
-
-
-class ContrastiveClassificationDataset(Dataset):
-    def __init__(self, df: DataFrame):
-        self.data = df
-
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, idx):
-        example = self.data.iloc[idx].copy()
-        return example
 
 
 @dataclass
@@ -373,22 +343,15 @@ class ContrastiveClassifierModel(AbstractContrastiveModel):
         return loss, projected
 
 
-class ContrastivePredictor(BasePredictor):
+class ContrastivePredictor(TransformerLMPredictor):
 
     PRETRAIN_SEED = 13
-    TRAIN_SEED = 97
     TRAIN_2_SEED = 23
-
-    transformer: PreTrainedModel = None
-    trainer: Trainer
 
     def __init__(self, config_path: str, report: bool = False, seed: int = 42):
         super(ContrastivePredictor, self).__init__(name="contrastive")
         self.config: ContrastiveClassifierConfig = utils.load_as_object(
             config_path, ContrastiveClassifierConfig.parse_obj)
-
-        self.tokenizer = AutoTokenizer.from_pretrained(self.config.transformer_name,
-                                                       additional_special_tokens=('[COL]', '[VAL]'))
 
         self.report = report
         self.report_to = "wandb" if report else "none"
@@ -397,8 +360,7 @@ class ContrastivePredictor(BasePredictor):
         self._init_default_configs(config_path)
         self.fp16 = torch.cuda.is_available()
 
-        self.transformer: PreTrainedModel = AutoModel.from_pretrained(self.config.transformer_name)
-        self.transformer.resize_token_embeddings(len(self.tokenizer))
+        self.tokenizer, self.transformer = self.init_tokenizer_transformer()
 
     def _init_default_configs(self, config_path: str):
         config_name = config_path.split('/')[-1][:-5]
@@ -407,69 +369,6 @@ class ContrastivePredictor(BasePredictor):
 
         if self.config.pretrain_specific.output is None:
             self.config.pretrain_specific.output = os.path.join('output', config_name, 'pretrain')
-
-    @staticmethod
-    def compute_metrics(eval_pred):
-        pred, labels = eval_pred
-        pred[pred >= 0.5] = 1
-        pred[pred < 0.5] = 0
-
-        pred = pred.reshape(-1)
-        labels = labels.reshape(-1)
-
-        f1 = f1_score(labels, pred, pos_label=1, average='binary')
-        return {'f1': f1}
-
-    def perform_training(self, trainer: Trainer, output: str, evaluate: bool = False,
-                         checkpoint_path: Optional[str] = None,
-                         finish_run: bool = True, seed: int = 42):
-        run = None
-        if self.report:
-            run_config = self.config.dict()
-            output_split = output.split('/')
-            run_config['current_target'] = output_split[-1]
-            run_name = output_split[-2] + '_' + output_split[-1]
-            run = wandb.init(project="master-thesis", entity="damianr13", config=run_config, name=run_name)
-
-        if not checkpoint_path:
-            utils.seed_all(seed)
-            trainer.train()
-        else:
-            trainer.num_train_epochs = 50
-            trainer.train(resume_from_checkpoint=checkpoint_path)
-
-        if evaluate:
-            trainer.evaluate(metric_key_prefix="eval")
-
-        if output:
-            trainer.save_model(output)
-
-        if run and finish_run:
-            run.finish()
-
-    @staticmethod
-    def _download_wandb_model(arguments: ExperimentsArgumentParser, target: str, output: str) -> Optional[str]:
-        if not arguments.load_wandb_models:
-            return None
-
-        client = wandb.Api()
-        previous_runs: Iterable[Run] = client.runs(path="damianr13/master-thesis", filters={
-            f"config.{target}_specific.output": output,
-            "config.current_target": target
-        })
-
-        for run in previous_runs:
-            artifacts: Iterable[Artifact] = run.logged_artifacts()
-            for artifact in artifacts:
-                if artifact.type != 'model':
-                    continue
-
-                artifact_dir = artifact.download()
-                model_checkpoint = os.path.join(artifact_dir, 'pytorch_model.bin')
-                if os.path.exists(model_checkpoint):
-                    return model_checkpoint
-
-        return None
 
     def perform_adaptive_tokenization(self, pretrain_set: DataFrame):
         tokens_df = pd.DataFrame()
@@ -590,37 +489,26 @@ class ContrastivePredictor(BasePredictor):
                           args=training_args,
                           data_collator=collator)
 
-        if self.config.pretrain_specific.early_stop_patience > 0:
-            trainer.add_callback(EarlyStoppingCallback(
-                early_stopping_patience=self.config.pretrain_specific.early_stop_patience))
+        report = self.report
+        if arguments.only_last_train:
+            self.report = False
 
-        existing_checkpoint = self._download_wandb_model(arguments,
-                                                         target='pretrain',
-                                                         output=self.config.pretrain_specific.output)
-        if existing_checkpoint:
-            self.load_pretrained(existing_checkpoint)
-            print(f"Successfully loaded pretrained model: {existing_checkpoint}")
-        else:
-            report = self.report
-            if arguments.only_last_train:
-                self.report = False
+        self.perform_training(trainer, arguments=arguments,
+                              output=self.config.pretrain_specific.output,
+                              checkpoint_path=checkpoint_path, seed=self.PRETRAIN_SEED)
 
-            self.perform_training(trainer,
-                                  output=self.config.pretrain_specific.output,
-                                  checkpoint_path=checkpoint_path, seed=self.PRETRAIN_SEED)
-
-            self.report = report
-            if not arguments.save_checkpoints:
-                shutil.rmtree(self.config.pretrain_specific.output)
-
-            self.transformer = model.transformer
+        self.report = report
+        self.transformer = model.transformer
 
         if self.config.frozen:
             for param in self.transformer.parameters():
                 param.requires_grad = False
 
-    def load_pretrained(self, checkpoint_path: str):
-        checkpoint = torch.load(checkpoint_path)
+    def load_pretrained(self, checkpoint_path: str, map_location: Optional[str] = None):
+        if map_location is None and not torch.cuda.is_available():
+            map_location = torch.device('cpu')
+
+        checkpoint = torch.load(checkpoint_path, map_location=map_location)
         model = ContrastivePretrainModel(self.transformer)
         model.load_state_dict(checkpoint)
 
@@ -630,49 +518,14 @@ class ContrastivePredictor(BasePredictor):
                 param.requires_grad = False
 
     def _init_training_trainer(self, model: ContrastiveClassifierModel,
-                               train_dataset: ContrastiveClassificationDataset,
-                               eval_dataset: ContrastiveClassificationDataset,
+                               train_dataset: ClassificationDataset,
+                               eval_dataset: ClassificationDataset,
                                arguments: ExperimentsArgumentParser,
                                output: str,
                                train_config: DeepLearningHyperparameters,
                                allow_early_stop: bool = True,
                                report_overwrite: Optional[bool] = None):
-
-        num_epochs = train_config.epochs if not arguments.debug else 1
-        learning_rate = utils.select_first_available(
-            [arguments.learn_rate, train_config.learning_rate])
-        warmup_ratio = utils.select_first_available([arguments.warmup_ratio, train_config.warmup_ratio])
-        batch_size = utils.select_first_available([arguments.batch_size, train_config.batch_size])
-        weight_decay = utils.select_first_available([arguments.weight_decay, train_config.weight_decay])
-
-        report = utils.select_first_available([report_overwrite, self.report])
-        report_to = "wandb" if report else "none"
-
-        training_args = TrainingArguments(
-            output_dir=output,
-            per_device_train_batch_size=batch_size,
-            per_device_eval_batch_size=batch_size,
-            learning_rate=learning_rate,
-            warmup_ratio=warmup_ratio,
-            num_train_epochs=num_epochs,
-            max_grad_norm=1.0,
-            weight_decay=weight_decay,
-            seed=self.seed,
-            fp16=self.fp16,
-            save_steps=10,
-            eval_steps=10,
-            overwrite_output_dir=True,
-            disable_tqdm=True,
-            dataloader_num_workers=train_config.loaders,
-            gradient_accumulation_steps=train_config.parallel_batches,
-            report_to=[report_to],
-            save_strategy=IntervalStrategy.EPOCH,
-            lr_scheduler_type=SchedulerType.LINEAR,
-            evaluation_strategy=IntervalStrategy.EPOCH,
-            logging_strategy=IntervalStrategy.EPOCH,
-            load_best_model_at_end=True,
-            deepspeed=self.config.deepspeed
-        )
+        training_args = self._get_training_args(train_config, arguments, output, report_overwrite)
 
         collator = ContrastiveClassifierDataCollator(tokenizer=self.tokenizer,
                                                      max_length=self.config.max_tokens,
@@ -690,68 +543,39 @@ class ContrastivePredictor(BasePredictor):
                 early_stopping_patience=train_config.early_stop_patience))
         return trainer
 
-    def load_trained(self, checkpoint_path: Optional[str] = None, map_location: Optional[str] = None):
-        if not checkpoint_path:
-            checkpoint_path = os.path.join(self.config.train_specific.output, 'pytorch_model.bin')
-
-        if map_location is None and not torch.cuda.is_available():
-            map_location = torch.device('cpu')
-
-        checkpoint = torch.load(checkpoint_path, map_location=map_location)
-        model = ContrastiveClassifierModel(checkpoint['transformer.embeddings.word_embeddings.weight'].shape[0],
-                                           model=self.config.transformer_name)
-        model.load_state_dict(checkpoint)
-
-        # no sense of passing debug flag here since the model is only loaded and not trained
-        collator = ContrastiveClassifierDataCollator(tokenizer=self.tokenizer,
-                                                     max_length=self.config.max_tokens)
-        self.trainer = Trainer(model=model, data_collator=collator,
-                               compute_metrics=self.compute_metrics)
-
     def train(self, train_set: DataFrame, valid_set: DataFrame,
               arguments: ExperimentsArgumentParser = ExperimentsArgumentParser()) -> None:
-        train_dataset = ContrastiveClassificationDataset(df=train_set)
-        eval_dataset = ContrastiveClassificationDataset(df=valid_set)
+        train_dataset = self.instantiate_classifier_dataset(df=train_set)
+        eval_dataset = self.instantiate_classifier_dataset(df=valid_set)
         model = ContrastiveClassifierModel(len_tokenizer=(len(self.tokenizer)),
                                            existing_transformer=self.transformer,
                                            model=self.config.transformer_name)
 
         # enforce config file settings for the first training
         arguments_copy = copy.copy(arguments)
-        arguments_copy.learn_rate = None
-        arguments_copy.warmup_ratio = None
-        arguments_copy.weight_decay = None
-        arguments_copy.batch_size = None
+        if self.config.unfreeze:
+            arguments_copy.learn_rate = None
+            arguments_copy.warmup_ratio = None
+            arguments_copy.weight_decay = None
+            arguments_copy.batch_size = None
 
         report_overwrite = False if arguments.only_last_train else None
         trainer = self._init_training_trainer(model, train_dataset, eval_dataset, arguments_copy,
                                               self.config.train_specific.output,
                                               train_config=self.config.train_specific,
                                               report_overwrite=report_overwrite)
+        report = self.report
+        if arguments.only_last_train and self.report:
+            # prevent reporting for intermediary training
+            self.report = False
 
-        existing_checkpoint = self._download_wandb_model(arguments,
-                                                         target='train',
-                                                         output=self.config.train_specific.output)
+        # only finish the run if we have the "unfreeze" argument, meaning another training round follows
+        self.perform_training(trainer, arguments=arguments_copy,
+                              output=self.config.train_specific.output,
+                              finish_run=self.config.unfreeze, seed=self.TRAIN_SEED)
 
-        if existing_checkpoint:
-            self.load_trained(existing_checkpoint)
-            print(f"Successfully loaded trained model: {existing_checkpoint}")
-        else:
-            report = self.report
-            if arguments.only_last_train and self.report:
-                # prevent reporting for intermediary training
-                self.report = False
-
-            # only finish the run if we have the "unfreeze" argument, meaning another training round follows
-            self.perform_training(trainer,
-                                  output=self.config.train_specific.output,
-                                  finish_run=self.config.unfreeze, seed=self.TRAIN_SEED)
-
-            self.report = report
-            if not arguments.save_checkpoints:
-                shutil.rmtree(self.config.train_specific.output)
-
-            self.trainer = trainer
+        self.report = report
+        self.trainer = trainer
 
         # unfreeze the transformer after head has been initialized properly
         if self.config.frozen and self.config.unfreeze:
@@ -767,15 +591,16 @@ class ContrastivePredictor(BasePredictor):
                                                    eval_dataset, arguments, output_train_2,
                                                    train_config=train_config,
                                                    allow_early_stop=False)
-            self.perform_training(trainer2, output=output_train_2, finish_run=False, seed=self.TRAIN_2_SEED)
+            self.perform_training(trainer2, arguments=arguments, output=output_train_2,
+                                  finish_run=False, seed=self.TRAIN_2_SEED)
 
             self.trainer = trainer2
 
-    def test(self, test_set: DataFrame) -> float:
-        test_dataset = ContrastiveClassificationDataset(test_set)
-        predict_results = self.trainer.predict(test_dataset)
+    def get_train_hyperparameters(self) -> DeepLearningHyperparameters:
+        return self.config.train_specific
 
-        f1 = predict_results.metrics['test_f1']
-        if wandb.run:
-            wandb.log({'f1': f1})
-        return f1
+    def instantiate_classifier_model(self) -> torch.nn.Module:
+        return ContrastiveClassifierModel(len(self.tokenizer), model=self.config.transformer_name)
+
+    def instantiate_classifier_collator(self) -> any:
+        return ContrastiveClassifierDataCollator(self.tokenizer, self.config.max_tokens)

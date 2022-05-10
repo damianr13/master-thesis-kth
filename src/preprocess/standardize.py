@@ -33,9 +33,9 @@ class BaseStandardizer(BasePreprocessor, Generic[T], ABC):
 
         return df[df['left_id'].isin(left_ids) & df['right_id'].isin(right_ids)]
 
-    def _preprocess_all(self, df_for_location: Dict[str, DataFrame]) -> Dict[str, DataFrame]:
+    def preprocess_all(self, df_for_location: Dict[str, DataFrame]) -> Dict[str, DataFrame]:
         df_for_location['train.csv'] = self._sample_data(df_for_location['train.csv'])
-        return super()._preprocess_all(df_for_location)
+        return super().preprocess_all(df_for_location)
 
 
 class RelationalDatasetStandardizer(BaseStandardizer[BaseStandardizerConfig]):
@@ -54,14 +54,14 @@ class RelationalDatasetStandardizer(BaseStandardizer[BaseStandardizerConfig]):
         self.source_a = pd.read_csv(os.path.join(self.config.original_location, 'tableA.csv'))
         self.source_b = pd.read_csv(os.path.join(self.config.original_location, 'tableB.csv'))
 
-    def _preprocess_one(self, refs_datas: DataFrame) -> DataFrame:
+    def preprocess_one(self, refs_datas: DataFrame) -> DataFrame:
         result = refs_datas
 
         # merge the reference table with the data sources
         result = result.merge(self.source_a.add_prefix('left_'), left_on='ltable_id', right_on='left_id', how='inner')
         result = result.merge(self.source_b.add_prefix('right_'), left_on='rtable_id', right_on='right_id', how='inner')
 
-        return super()._preprocess_one(result)
+        return super().preprocess_one(result)
 
 
 class WDCDatasetStandardizer(BaseStandardizer[WDCStandardizerConfig]):
@@ -82,7 +82,7 @@ class WDCDatasetStandardizer(BaseStandardizer[WDCStandardizerConfig]):
         df = df.rename(columns=column_name_map)
         return df[list(column_name_map.values()) + ['label']]
 
-    def _preprocess_all(self, df_for_location: Dict[str, DataFrame]) -> Dict[str, DataFrame]:
+    def preprocess_all(self, df_for_location: Dict[str, DataFrame]) -> Dict[str, DataFrame]:
         train_valid_df = df_for_location[self.config.intermediate_train_valid_name]
         train_valid_split = pd.read_csv(os.path.join(self.config.original_location, self.config.train_valid_split_file))
 
@@ -99,4 +99,4 @@ class WDCDatasetStandardizer(BaseStandardizer[WDCStandardizerConfig]):
         result[valid_df_location] = valid_df
 
         result = {k: self.__apply_correct_names(df) for k, df in result.items()}
-        return super()._preprocess_all(result)
+        return super().preprocess_all(result)
