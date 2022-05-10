@@ -1,5 +1,6 @@
 {
   "frozen": true,
+  "unfreeze": true,
   "dataset_name": "wdc_computers_medium_50",
   "transformer_name": "huawei-noah/TinyBERT_General_4L_312D",
   "max_tokens": 128,
