@@ -200,12 +200,19 @@ if __name__ == "__main__":
 
     supcon_experiments = [
         {
-            "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_medium_0.50.json'),
-            "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'wdc_computers_medium.json'),
+            "stand_path": os.path.join('configs', 'stands_tasks', 'amazon_google_0.75.json'),
+            "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'amazon_google.json'),
             "predictor_path": os.path.join('configs', 'model_train', 'contrastive', 'sampled',
-                                           'unfreeze_no-aug_batch-pt128_sample50_wdc-computers-medium.json'),
-            "known_clusters": True
-        }
+                                           'unfreeze_no-aug_batch-pt128_sample75_amazon-google.json'),
+            "known_clusters": False
+        },
+        # {
+        #     "stand_path": os.path.join('configs', 'stands_tasks', 'amazon_google_0.75.json'),
+        #     "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'amazon_google.json'),
+        #     "predictor_path": os.path.join('configs', 'model_train', 'contrastive', 'sampled',
+        #                                    'unfreeze_no-aug_batch-pt128_sample75_amazon-google.json'),
+        #     "known_clusters": False
+        # }
     ]
 
     run_experiments(args, supcon_experiments, run_single_supcon_experiment)
