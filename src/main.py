@@ -208,6 +208,8 @@ if __name__ == "__main__":
         }
     ]
 
+    run_experiments(args, supcon_experiments, run_single_supcon_experiment)
+
     end = datetime.now()
 
     print(f"Execution took {end - start} ms")
