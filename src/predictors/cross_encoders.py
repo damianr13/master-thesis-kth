@@ -27,10 +27,7 @@ class DittoDataCollator:
     def __call__(self, x):
         features = [(v['left_text'], v['right_text']) for v in x]
 
-        # if self.teacher is None:
         labels = [v['label'] for v in x]
-        # else:
-        #     aux_df = pd.DataFrame(x)
 
         batch = self.tokenizer.batch_encode_plus(batch_text_or_text_pairs=features,
                                                  max_length=self.max_length,
