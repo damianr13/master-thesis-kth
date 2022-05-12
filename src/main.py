@@ -96,7 +96,7 @@ class ExperimentConfig(BaseModel):
     stand_path: str
     proc_path: str
     predictor_path: str
-    known_clusters: bool
+    known_clusters: bool = False
 
 
 def run_single_ditto_experiment(experiment_config: ExperimentConfig,
@@ -187,17 +187,27 @@ if __name__ == "__main__":
     seed_all(42)
     torch.cuda.seed_all()
 
-    ditto_experiments = [
+    # ditto_experiments = [
+    #     {
+    #         "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_small.json'),
+    #         "proc_path": os.path.join('configs', 'model_specific', 'ditto', 'wdc_computers_small.json'),
+    #         "predictor_path": os.path.join('configs', 'model_train', 'ditto',
+    #                                        'wdc_computers_small.json'),
+    #     },
+    # ]
+    #
+    # run_experiments(args, ditto_experiments, run_single_ditto_experiment)
+
+    supcon_experiments = [
         {
-            "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_small.json'),
-            "proc_path": os.path.join('configs', 'model_specific', 'ditto', 'wdc_computers_small.json'),
-            "predictor_path": os.path.join('configs', 'model_train', 'ditto',
-                                           'wdc_computers_small.json'),
+            "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_medium_0.50.json'),
+            "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'wdc_computers_medium.json'),
+            "predictor_path": os.path.join('configs', 'model_train', 'contrastive', 'sampled',
+                                           'unfreeze_no-aug_batch-pt128_wdc-computers-medium.json'),
             "known_clusters": True
-        },
+        }
     ]
 
-    run_experiments(args, ditto_experiments, run_single_ditto_experiment)
     end = datetime.now()
 
     print(f"Execution took {end - start} ms")

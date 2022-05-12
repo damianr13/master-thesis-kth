@@ -3,6 +3,7 @@ import re
 from abc import ABC
 from typing import Callable, Generic, TypeVar, Dict, List
 
+import numpy as np
 import pandas as pd
 from pandas import DataFrame
 
@@ -34,6 +35,13 @@ class BasePreprocessor(Generic[T], ABC):
     def preprocess(self, original_location: str = None, target_location: str = None):
         original_location = utils.select_first_available([self.config.original_location, original_location])
         target_location = utils.select_first_available([self.config.target_location, target_location])
+
+        target_files_exist = np.all([os.path.exists(os.path.join(target_location, target))
+                                     for target in self.config.split_files.values()])
+        if target_files_exist:
+            print(f'All files are already in place, skipping step for target location: {target_location}')
+            return
+
         if not os.path.exists(target_location):
             os.makedirs(target_location)
 
