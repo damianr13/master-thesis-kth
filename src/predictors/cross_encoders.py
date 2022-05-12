@@ -75,10 +75,10 @@ class DittoPredictor(TransformerLMPredictor):
         self.fp16 = torch.cuda.is_available()
 
         self.tokenizer, self.transformer = self.init_tokenizer_transformer()
+        self.teacher = self.load_teacher()
 
     def train(self, train_set: DataFrame, valid_set: DataFrame,
               arguments: ExperimentsArgumentParser = ExperimentsArgumentParser()) -> None:
-        self.load_teacher()
         if arguments.debug:
             train_set = train_set.sample(100)
             valid_set = valid_set.sample(100)
@@ -124,7 +124,7 @@ class DittoPredictor(TransformerLMPredictor):
 
         teacher_checkpoint = self._download_wandb_model(target=last_train_target, output=last_train_output)
         teacher.load_trained(teacher_checkpoint)
-        self.teacher = teacher
+        return teacher
 
     def get_train_hyperparameters(self) -> DeepLearningHyperparameters:
         return self.config.hyperparameters
