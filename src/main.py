@@ -210,7 +210,7 @@ if __name__ == "__main__":
             "stand_path": os.path.join('configs', 'stands_tasks', 'abt_buy_0.75.json'),
             "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'abt_buy.json'),
             "predictor_path": os.path.join('configs', 'model_train', 'contrastive', 'sampled',
-                                           'frozen_no-aug_batch-pt128_sample75_abt-buy.json'),
+                                           'unfreeze_no-aug_batch-pt128_sample75_abt-buy.json'),
             "known_clusters": False
         }
     ]
