@@ -187,35 +187,35 @@ if __name__ == "__main__":
     seed_all(42)
     torch.cuda.seed_all()
 
-    # ditto_experiments = [
-    #     {
-    #         "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_small.json'),
-    #         "proc_path": os.path.join('configs', 'model_specific', 'ditto', 'wdc_computers_small.json'),
-    #         "predictor_path": os.path.join('configs', 'model_train', 'ditto',
-    #                                        'wdc_computers_small.json'),
-    #     },
-    # ]
-    #
-    # run_experiments(args, ditto_experiments, run_single_ditto_experiment)
-
-    supcon_experiments = [
+    ditto_experiments = [
         {
-            "stand_path": os.path.join('configs', 'stands_tasks', 'amazon_google_0.75.json'),
-            "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'amazon_google.json'),
-            "predictor_path": os.path.join('configs', 'model_train', 'contrastive', 'sampled',
-                                           'unfreeze_no-aug_batch-pt128_sample75_amazon-google.json'),
-            "known_clusters": False
+            "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_small.json'),
+            "proc_path": os.path.join('configs', 'model_specific', 'ditto', 'wdc_computers_small.json'),
+            "predictor_path": os.path.join('configs', 'model_train', 'ditto',
+                                           'wdc_computers_small.json'),
         },
-        # {
-        #     "stand_path": os.path.join('configs', 'stands_tasks', 'amazon_google_0.75.json'),
-        #     "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'amazon_google.json'),
-        #     "predictor_path": os.path.join('configs', 'model_train', 'contrastive', 'sampled',
-        #                                    'unfreeze_no-aug_batch-pt128_sample75_amazon-google.json'),
-        #     "known_clusters": False
-        # }
     ]
 
-    run_experiments(args, supcon_experiments, run_single_supcon_experiment)
+    run_experiments(args, ditto_experiments, run_single_ditto_experiment)
+
+    # supcon_experiments = [
+    #     # {
+    #     #     "stand_path": os.path.join('configs', 'stands_tasks', 'amazon_google_0.75.json'),
+    #     #     "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'amazon_google.json'),
+    #     #     "predictor_path": os.path.join('configs', 'model_train', 'contrastive', 'sampled',
+    #     #                                    'unfreeze_no-aug_batch-pt128_sample75_amazon-google.json'),
+    #     #     "known_clusters": False
+    #     # },
+    #     {
+    #         "stand_path": os.path.join('configs', 'stands_tasks', 'amazon_google_0.75.json'),
+    #         "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'amazon_google.json'),
+    #         "predictor_path": os.path.join('configs', 'model_train', 'contrastive', 'sampled',
+    #                                        'unfreeze_no-aug_batch-pt128_sample75_amazon-google.json'),
+    #         "known_clusters": False
+    #     }
+    # ]
+    #
+    # run_experiments(args, supcon_experiments, run_single_supcon_experiment)
 
     end = datetime.now()
 
