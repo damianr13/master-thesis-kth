@@ -1,0 +1,10 @@
+{
+  "transformer_name": "huawei-noah/TinyBERT_General_4L_312D",
+  "max_tokens": 256,
+  "hyperparameters": {
+    "learning_rate": 3e-5,
+    "batch_size": 64,
+    "epochs": 30
+  },
+  "teacher_conf": "configs/model_train/contrastive/frozen_no-aug_batch-pt128_wdc-computers-medium.json"
+}
