@@ -192,7 +192,7 @@ if __name__ == "__main__":
             "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_small.json'),
             "proc_path": os.path.join('configs', 'model_specific', 'ditto', 'wdc_computers_small.json'),
             "predictor_path": os.path.join('configs', 'model_train', 'ditto',
-                                           'wdc_computers_small.json'),
+                                           'ditto_wdc-computers-small.json'),
         },
     ]
 

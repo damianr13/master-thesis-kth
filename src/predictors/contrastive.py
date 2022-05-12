@@ -363,12 +363,14 @@ class ContrastivePredictor(TransformerLMPredictor):
         self.tokenizer, self.transformer = self.init_tokenizer_transformer()
 
     def _init_default_configs(self, config_path: str):
-        config_name = config_path.split('/')[-1][:-5]
-        if self.config.train_specific.output is None:
-            self.config.train_specific.output = os.path.join('output', config_name, 'train')
+        self.config.pretrain_specific = self.init_default_output(self.config.pretrain_specific,
+                                                                 config_path=config_path, suffix='pretrain')
+        self.config.train_specific = self.init_default_output(self.config.train_specific,
+                                                              config_path=config_path, suffix='train')
 
-        if self.config.pretrain_specific.output is None:
-            self.config.pretrain_specific.output = os.path.join('output', config_name, 'pretrain')
+        if self.config.train_2_specific is not None:
+            self.config.train_2_specific = self.init_default_output(self.config.train_2_specific,
+                                                                    config_path=config_path, suffix='train_2')
 
     def perform_adaptive_tokenization(self, pretrain_set: DataFrame):
         tokens_df = pd.DataFrame()
@@ -493,7 +495,7 @@ class ContrastivePredictor(TransformerLMPredictor):
         if arguments.only_last_train:
             self.report = False
 
-        self.perform_training(trainer, arguments=arguments,
+        self.perform_training(trainer, arguments=arguments, target='pretrain',
                               output=self.config.pretrain_specific.output,
                               checkpoint_path=checkpoint_path, seed=self.PRETRAIN_SEED)
 
@@ -503,6 +505,20 @@ class ContrastivePredictor(TransformerLMPredictor):
         if self.config.frozen:
             for param in self.transformer.parameters():
                 param.requires_grad = False
+
+    def perform_training(self, trainer: Trainer, arguments: ExperimentsArgumentParser, output: str, target: str,
+                         evaluate: bool = False, checkpoint_path: Optional[str] = None, finish_run: bool = True,
+                         seed: int = 42):
+        # check if models from wandb should be loaded as pretrained models
+        if arguments.load_wandb_models and not checkpoint_path and target == 'pretrain':
+            model_checkpoint = self._download_wandb_model(target=target, output=output)
+            if model_checkpoint:
+                self.load_pretrained(model_checkpoint)
+                print(f'Successfully loaded model from path: {model_checkpoint}')
+                return
+
+        # if we didn't load a pretrained model proceed with normal execution
+        super().perform_training(trainer, arguments, output, target, evaluate, checkpoint_path, finish_run, seed)
 
     def load_pretrained(self, checkpoint_path: str, map_location: Optional[str] = None):
         if map_location is None and not torch.cuda.is_available():
@@ -570,7 +586,7 @@ class ContrastivePredictor(TransformerLMPredictor):
             self.report = False
 
         # only finish the run if we have the "unfreeze" argument, meaning another training round follows
-        self.perform_training(trainer, arguments=arguments_copy,
+        self.perform_training(trainer, arguments=arguments_copy, target='train',
                               output=self.config.train_specific.output,
                               finish_run=self.config.unfreeze, seed=self.TRAIN_SEED)
 
@@ -591,7 +607,7 @@ class ContrastivePredictor(TransformerLMPredictor):
                                                    eval_dataset, arguments, output_train_2,
                                                    train_config=train_config,
                                                    allow_early_stop=False)
-            self.perform_training(trainer2, arguments=arguments, output=output_train_2,
+            self.perform_training(trainer2, arguments=arguments, output=output_train_2, target='train_2',
                                   finish_run=False, seed=self.TRAIN_2_SEED)
 
             self.trainer = trainer2

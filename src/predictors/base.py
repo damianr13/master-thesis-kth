@@ -1,8 +1,9 @@
 import os.path
 import shutil
 from abc import ABC, abstractmethod
-from typing import Optional, Iterable, Tuple
+from typing import Optional, Iterable, Tuple, Callable
 
+import numpy as np
 import pandas as pd
 import torch.cuda
 import wandb
@@ -11,7 +12,7 @@ from pydantic import BaseModel
 from sklearn.metrics import f1_score
 from torch.utils.data import Dataset
 from transformers import Trainer, TrainingArguments, IntervalStrategy, SchedulerType, PreTrainedTokenizer, \
-    PreTrainedModel, AutoTokenizer, AutoModel
+    PreTrainedModel, AutoTokenizer, AutoModel, EvalPrediction
 from wandb.apis.public import Run
 
 from src import utils
@@ -98,8 +99,10 @@ class TransformerLMPredictor(BasePredictor, ABC):
         return hyperparameters
 
     @staticmethod
-    def compute_metrics(eval_pred):
+    def compute_metrics(eval_pred: EvalPrediction):
         pred, labels = eval_pred
+        pred = np.copy(pred)
+
         pred[pred >= 0.5] = 1
         pred[pred < 0.5] = 0
 
@@ -110,12 +113,14 @@ class TransformerLMPredictor(BasePredictor, ABC):
         return {'f1': f1}
 
     def perform_training(self, trainer: Trainer,
-                         arguments: ExperimentsArgumentParser, output: str, evaluate: bool = False,
+                         arguments: ExperimentsArgumentParser, output: str,
+                         target: str,
+                         evaluate: bool = False,
                          checkpoint_path: Optional[str] = None,
                          finish_run: bool = True, seed: int = 42):
         # if not checkpoint defined clearly and wandb loading is enabled check for a checkpoint there
         if arguments.load_wandb_models and not checkpoint_path:
-            model_checkpoint = self._download_wandb_model(target='pretrain', output=output)
+            model_checkpoint = self._download_wandb_model(target=target, output=output)
             if model_checkpoint:
                 self.load_trained(model_checkpoint)
                 print(f'Successfully loaded model from path: {model_checkpoint}')
@@ -153,7 +158,7 @@ class TransformerLMPredictor(BasePredictor, ABC):
         client = wandb.Api()
 
         previous_runs: Iterable[Run] = client.runs(path="damianr13/master-thesis", filters={
-            "output_dir": output,
+            "config.output_dir": output,
             "config.current_target": target
         })
 

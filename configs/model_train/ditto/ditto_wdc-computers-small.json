@@ -5,5 +5,6 @@
     "learning_rate": 3e-5,
     "batch_size": 64,
     "epochs": 30
-  }
+  },
+  "teacher_conf": "configs/model_train/contrastive/frozen_no-aug_batch-pt128_wdc-computers-medium.json"
 }
