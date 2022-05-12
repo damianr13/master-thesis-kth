@@ -190,19 +190,19 @@ if __name__ == "__main__":
     ditto_experiments = [
         {
             "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_medium_0.75.json'),
-            "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'wdc_computers_medium.json'),
+            "proc_path": os.path.join('configs', 'model_specific', 'ditto', 'wdc_computers_medium.json'),
             "predictor_path": os.path.join('configs', 'model_train', 'ditto',
                                            'ditto_sample50_wdc-computers-medium.json'),
         },
         {
             "stand_path": os.path.join('configs', 'stands_tasks', 'amazon_google_0.75.json'),
-            "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'amazon_google.json'),
+            "proc_path": os.path.join('configs', 'model_specific', 'ditto', 'amazon_google.json'),
             "predictor_path": os.path.join('configs', 'model_train', 'ditto',
                                            'ditto_sample75_amazon-google.json'),
         },
         {
             "stand_path": os.path.join('configs', 'stands_tasks', 'abt_buy_0.75.json'),
-            "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'abt_buy.json'),
+            "proc_path": os.path.join('configs', 'model_specific', 'ditto', 'abt_buy.json'),
             "predictor_path": os.path.join('configs', 'model_train', 'ditto',
                                            'ditto_sample75_abt-buy.json'),
         }
