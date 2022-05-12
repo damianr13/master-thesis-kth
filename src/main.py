@@ -203,7 +203,7 @@ if __name__ == "__main__":
             "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_medium_0.75.json'),
             "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'wdc_computers_medium.json'),
             "predictor_path": os.path.join('configs', 'model_train', 'contrastive', 'sampled',
-                                           'unfrozen_no-aug_batch-pt128_sample75_wdc-computers-medium.json'),
+                                           'unfrozen_no-aug_batch-pt128_sample50_wdc-computers-medium.json'),
             "known_clusters": True
         },
         {
