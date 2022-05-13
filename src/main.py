@@ -13,13 +13,14 @@ from src.predictors.contrastive import ContrastivePredictor
 from src.predictors.cross_encoders import DittoPredictor
 from src.predictors.dummy import AllMatchPredictor, NoMatchPredictor, BalancedPredictor, ClassDistributionAwarePredictor
 from src.predictors.word_cooc import WordCoocPredictor
-from src.preprocess.configs import ExperimentsArgumentParser, BasePreprocConfig
+from src.preprocess.configs import ExperimentsArgumentParser
 from src.preprocess.definitions import BasePreprocessor
 from src.preprocess.model_specific.contrastive import ContrastivePreprocessorKnownClusters, \
     ContrastivePreprocessorUnknownClusters
 from src.preprocess.model_specific.ditto import DittoPreprocessor
 from src.preprocess.model_specific.word_cooc import WordCoocPreprocessor
-from src.preprocess.standardize import RelationalDatasetStandardizer, WDCDatasetStandardizer, JSONLStandardizer
+from src.preprocess.standardize import RelationalDatasetStandardizer, WDCDatasetStandardizer, JSONLStandardizer, \
+    BaseStandardizer
 from src.utils import seed_all
 
 
@@ -105,15 +106,27 @@ class ExperimentConfig(BaseModel):
     stand_path: str
     proc_path: str
     predictor_path: str
+    standardizer: str
     known_clusters: bool = False
+
+
+def standardizer_for_name(name: str, config_path: str) -> BaseStandardizer:
+    if name == 'jsonl':
+        return JSONLStandardizer(config_path=config_path)
+
+    if name == 'wdc':
+        return WDCDatasetStandardizer(config_path=config_path)
+
+    if name == 'relational':
+        return RelationalDatasetStandardizer(config_path=config_path)
+
+    raise Exception("Unknown standardizer requested")
 
 
 def run_single_ditto_experiment(experiment_config: ExperimentConfig,
                                 arguments: ExperimentsArgumentParser):
     seed_all(42)
-    use_wdc = "wdc" in experiment_config.stand_path.split('/')[-1]
-    standardizer = WDCDatasetStandardizer(experiment_config.stand_path) if use_wdc \
-        else RelationalDatasetStandardizer(experiment_config.stand_path)
+    standardizer = standardizer_for_name(experiment_config.standardizer, experiment_config.stand_path)
     standardizer.preprocess()
 
     preprocessor = DittoPreprocessor(config_path=experiment_config.proc_path)
@@ -147,8 +160,7 @@ def run_single_supcon_experiment(experiment_config: ExperimentConfig,
     seed_all(42)
 
     known_clusters = experiment_config.known_clusters
-    standardizer = WDCDatasetStandardizer(experiment_config.stand_path) if known_clusters \
-        else RelationalDatasetStandardizer(experiment_config.stand_path)
+    standardizer = standardizer_for_name(experiment_config.standardizer, experiment_config.stand_path)
     standardizer.preprocess()
     preprocessor = ContrastivePreprocessorKnownClusters(experiment_config.proc_path) if known_clusters \
         else ContrastivePreprocessorUnknownClusters(experiment_config.proc_path)
@@ -246,6 +258,7 @@ if __name__ == "__main__":
             "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'proprietary.json'),
             "predictor_path": os.path.join('configs', 'model_train', 'contrastive',
                                            'frozen_no-aug_batch-pt128_proprietary.json'),
+            "standardizer": 'jsonl',
             "known_clusters": True
         },
     ]
