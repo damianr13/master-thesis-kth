@@ -1,0 +1,12 @@
+{
+  "original_location": "data/interim/proprietary/",
+  "target_location": "data/processed/word_cooc/proprietary/",
+  "split_files": {
+    "train.csv": "train.csv",
+    "test.csv": "test.csv",
+    "valid.csv": "valid.csv"
+  },
+  "relevant_columns": [
+    "brand", "name", "metadata"
+  ]
+}

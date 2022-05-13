@@ -19,7 +19,7 @@ from src.preprocess.model_specific.contrastive import ContrastivePreprocessorKno
     ContrastivePreprocessorUnknownClusters
 from src.preprocess.model_specific.ditto import DittoPreprocessor
 from src.preprocess.model_specific.word_cooc import WordCoocPreprocessor
-from src.preprocess.standardize import RelationalDatasetStandardizer, WDCDatasetStandardizer
+from src.preprocess.standardize import RelationalDatasetStandardizer, WDCDatasetStandardizer, JSONLStandardizer
 from src.utils import seed_all
 
 
@@ -44,30 +44,39 @@ def run_experiments_for_predictor(predictor: BasePredictor,
                                   preproc_for_model: Optional[str] = None) -> None:
     if not preproc_for_model:
         preproc_for_model = predictor.name
+    #
+    # model_name, f1 = run_pipeline(stand_config=os.path.join('configs', 'stands_tasks', 'abt_buy.json'),
+    #                               preproc_config=os.path.join('configs',
+    #                                                           'model_specific',
+    #                                                           preproc_for_model,
+    #                                                           'abt_buy.json'),
+    #                               predictor=predictor)
+    # results_table.add_data('abt_buy', model_name, f1)
+    #
+    # model_name, f1 = run_pipeline(stand_config=os.path.join('configs', 'stands_tasks', 'amazon_google.json'),
+    #                               preproc_config=os.path.join('configs',
+    #                                                           'model_specific',
+    #                                                           preproc_for_model,
+    #                                                           'amazon_google.json'),
+    #                               predictor=predictor)
+    # results_table.add_data('amazon_google', model_name, f1)
+    #
+    # model_name, f1 = run_pipeline(stand_config=os.path.join('configs', 'stands_tasks', 'wdc_computers_large.json'),
+    #                               preproc_config=os.path.join('configs',
+    #                                                           'model_specific',
+    #                                                           preproc_for_model,
+    #                                                           'wdc_computers_large.json'),
+    #                               predictor=predictor,
+    #                               standardizer_init=WDCDatasetStandardizer)
+    # results_table.add_data('wdc_computers_large', model_name, f1)
 
-    model_name, f1 = run_pipeline(stand_config=os.path.join('configs', 'stands_tasks', 'abt_buy.json'),
+    model_name, f1 = run_pipeline(stand_config=os.path.join('configs', 'stands_tasks', 'proprietary.json'),
                                   preproc_config=os.path.join('configs',
                                                               'model_specific',
                                                               preproc_for_model,
-                                                              'abt_buy.json'),
-                                  predictor=predictor)
-    results_table.add_data('abt_buy', model_name, f1)
-
-    model_name, f1 = run_pipeline(stand_config=os.path.join('configs', 'stands_tasks', 'amazon_google.json'),
-                                  preproc_config=os.path.join('configs',
-                                                              'model_specific',
-                                                              preproc_for_model,
-                                                              'amazon_google.json'),
-                                  predictor=predictor)
-    results_table.add_data('amazon_google', model_name, f1)
-
-    model_name, f1 = run_pipeline(stand_config=os.path.join('configs', 'stands_tasks', 'wdc_computers_large.json'),
-                                  preproc_config=os.path.join('configs',
-                                                              'model_specific',
-                                                              preproc_for_model,
-                                                              'wdc_computers_large.json'),
+                                                              'proprietary.json'),
                                   predictor=predictor,
-                                  standardizer_init=WDCDatasetStandardizer)
+                                  standardizer_init=JSONLStandardizer)
     results_table.add_data('wdc_computers_large', model_name, f1)
 
 
@@ -188,24 +197,24 @@ if __name__ == "__main__":
     torch.cuda.seed_all()
 
     ditto_experiments = [
-        {
-            "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_medium_0.75.json'),
-            "proc_path": os.path.join('configs', 'model_specific', 'ditto', 'wdc_computers_medium.json'),
-            "predictor_path": os.path.join('configs', 'model_train', 'ditto',
-                                           'ditto_sample50_wdc-computers-medium.json'),
-        },
-        {
-            "stand_path": os.path.join('configs', 'stands_tasks', 'amazon_google_0.75.json'),
-            "proc_path": os.path.join('configs', 'model_specific', 'ditto', 'amazon_google.json'),
-            "predictor_path": os.path.join('configs', 'model_train', 'ditto',
-                                           'ditto_sample75_amazon-google.json'),
-        },
-        {
-            "stand_path": os.path.join('configs', 'stands_tasks', 'abt_buy_0.75.json'),
-            "proc_path": os.path.join('configs', 'model_specific', 'ditto', 'abt_buy.json'),
-            "predictor_path": os.path.join('configs', 'model_train', 'ditto',
-                                           'ditto_sample75_abt-buy.json'),
-        }
+        # {
+        #     "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_medium_0.75.json'),
+        #     "proc_path": os.path.join('configs', 'model_specific', 'ditto', 'wdc_computers_medium.json'),
+        #     "predictor_path": os.path.join('configs', 'model_train', 'ditto',
+        #                                    'ditto_sample50_wdc-computers-medium.json'),
+        # },
+        # {
+        #     "stand_path": os.path.join('configs', 'stands_tasks', 'amazon_google_0.75.json'),
+        #     "proc_path": os.path.join('configs', 'model_specific', 'ditto', 'amazon_google.json'),
+        #     "predictor_path": os.path.join('configs', 'model_train', 'ditto',
+        #                                    'ditto_sample75_amazon-google.json'),
+        # },
+        # {
+        #     "stand_path": os.path.join('configs', 'stands_tasks', 'abt_buy_0.75.json'),
+        #     "proc_path": os.path.join('configs', 'model_specific', 'ditto', 'abt_buy.json'),
+        #     "predictor_path": os.path.join('configs', 'model_train', 'ditto',
+        #                                    'ditto_sample75_abt-buy.json'),
+        # }
     ]
 
     run_experiments(args, ditto_experiments, run_single_ditto_experiment)
@@ -231,10 +240,19 @@ if __name__ == "__main__":
         #     "predictor_path": os.path.join('configs', 'model_train', 'contrastive', 'sampled',
         #                                    'unfrozen_no-aug_batch-pt128_sample75_abt-buy.json'),
         #     "known_clusters": False
-        # }
+        # },
+        {
+            "stand_path": os.path.join('configs', 'stands_tasks', 'proprietary.json'),
+            "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'proprietary.json'),
+            "predictor_path": os.path.join('configs', 'model_train', 'contrastive',
+                                           'frozen_no-aug_batch-pt128_proprietary.json'),
+            "known_clusters": True
+        },
     ]
 
     run_experiments(args, supcon_experiments, run_single_supcon_experiment)
+
+    run_baseline_experiments()
 
     end = datetime.now()
 

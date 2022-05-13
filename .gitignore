@@ -6,3 +6,4 @@ output/
 src.egg-info/
 artifacts/
 notebooks/.ipynb_checkpoints/
+wandb/

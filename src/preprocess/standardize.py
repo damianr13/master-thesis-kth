@@ -1,3 +1,4 @@
+import glob
 import math
 import os
 from abc import ABC
@@ -15,6 +16,14 @@ T = TypeVar("T", bound=BaseStandardizerConfig)
 
 class BaseStandardizer(BasePreprocessor, Generic[T], ABC):
     def _sample_data(self, df: DataFrame) -> DataFrame:
+        """
+        Applies sampling to a dataframe according to the configured "train_sample_frac".
+
+        This method is used for reducing the training sets to create situations where data is scarce, starting from the
+        standard datasets.
+        :param df:
+        :return:
+        """
         if self.config.train_sample_frac >= 1:
             return df
 
@@ -101,3 +110,26 @@ class WDCDatasetStandardizer(BaseStandardizer[WDCStandardizerConfig]):
 
         result = {k: self.__apply_correct_names(df) for k, df in result.items()}
         return super().preprocess_all(result)
+
+
+class JSONLStandardizer(BaseStandardizer):
+    """
+    Standardizer for inputs in the jsonl format, split in different files. This is the format exported by a Spark job
+    for example
+    """
+    def __init__(self, config_path):
+        super(JSONLStandardizer, self).__init__(config_path=config_path,
+                                                config_instantiator=BaseStandardizerConfig.parse_obj)
+
+    @staticmethod
+    def read_one_split_file(path) -> DataFrame:
+        json_entries = glob.glob(f'{path}/*.json')
+
+        first_json = json_entries[0]
+        result = pd.read_json(first_json, lines=True)
+
+        for entry in json_entries[1:]:
+            print(f'Reading {entry}...')
+            result = pd.concat([result, pd.read_json(entry, lines=True)])
+
+        return result

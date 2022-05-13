@@ -1,0 +1,20 @@
+{
+  "split_files": {
+    "train.csv": "train.csv",
+    "test.csv": "test.csv",
+    "valid.csv": "valid.csv"
+  },
+  "relevant_columns": [
+    "cluster_id", "brand", "name", "metadata"
+  ],
+  "column_lengths": {
+    "brand": 8,
+    "name": 40,
+    "metadata": 80
+  },
+  "left_id_column": "left_product_id",
+  "right_id_column": "right_product_id",
+  "pretrain_used_datasets": ["train.csv", "valid.csv"],
+  "pretrain_sample": 0.8,
+  "label_column": "label"
+}

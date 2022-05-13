@@ -59,7 +59,7 @@ class BasePreprocessor(Generic[T], ABC):
             df.to_csv(os.path.join(target_location, location), index=False)
 
     @staticmethod
-    def read_one_split_file(path):
+    def read_one_split_file(path) -> DataFrame:
         return pd.read_csv(path)
 
 
