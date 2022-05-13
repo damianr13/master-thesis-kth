@@ -239,4 +239,4 @@ class ContrastivePreprocessorKnownClusters(ContrastivePreprocessor):
         :param df:
         :return:
         """
-        return df[['left_cluster_id', 'right_cluster_id', 'left_id', 'right_id', 'left_text', 'right_text', 'label']]
+        return df[['left_cluster_id', 'right_cluster_id', 'left_text', 'right_text', 'label']]

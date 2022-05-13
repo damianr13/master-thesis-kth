@@ -78,7 +78,7 @@ def run_experiments_for_predictor(predictor: BasePredictor,
                                                               'proprietary.json'),
                                   predictor=predictor,
                                   standardizer_init=JSONLStandardizer)
-    results_table.add_data('wdc_computers_large', model_name, f1)
+    results_table.add_data('proprietary', model_name, f1)
 
 
 def run_baseline_experiments():
@@ -232,13 +232,14 @@ if __name__ == "__main__":
     run_experiments(args, ditto_experiments, run_single_ditto_experiment)
 
     supcon_experiments = [
-        # {
-        #     "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_medium_0.75.json'),
-        #     "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'wdc_computers_medium.json'),
-        #     "predictor_path": os.path.join('configs', 'model_train', 'contrastive', 'sampled',
-        #                                    'unfrozen_no-aug_batch-pt128_sample50_wdc-computers-medium.json'),
-        #     "known_clusters": True
-        # },
+        {
+            "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_medium_0.50.json'),
+            "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'wdc_computers_medium.json'),
+            "predictor_path": os.path.join('configs', 'model_train', 'contrastive', 'sampled',
+                                           'frozen_no-aug_batch-pt128_sample50_wdc-computers-medium.json'),
+            "standardizer": "wdc",
+            "known_clusters": True
+        },
         # {
         #     "stand_path": os.path.join('configs', 'stands_tasks', 'amazon_google_0.75.json'),
         #     "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'amazon_google.json'),
@@ -265,7 +266,7 @@ if __name__ == "__main__":
 
     run_experiments(args, supcon_experiments, run_single_supcon_experiment)
 
-    run_baseline_experiments()
+    # run_baseline_experiments()
 
     end = datetime.now()
 

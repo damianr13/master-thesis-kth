@@ -132,4 +132,5 @@ class JSONLStandardizer(BaseStandardizer):
             print(f'Reading {entry}...')
             result = pd.concat([result, pd.read_json(entry, lines=True)])
 
-        return result
+        # a bit hardcoded for now, but let's see if this becomes an issue
+        return result.rename(columns={'left_product_id': 'left_cluster_id', 'right_product_id': 'right_cluster_id'})

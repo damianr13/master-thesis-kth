@@ -2,7 +2,7 @@
   "original_location": "data/raw/proprietary/",
   "target_location": "data/interim/proprietary/",
   "relevant_columns": [
-    "product_id", "brand", "name", "metadata"
+    "cluster_id", "brand", "name", "metadata"
   ],
   "split_files": {
     "train": "train.csv",
