@@ -29,7 +29,6 @@ class ContrastiveClassifierConfig(BaseTransformerClassifierConfig):
     unfreeze: bool = False
     augment: str = "no"  # possible values: "no", "dropout", "mixda", "plain"
     swap_offers: bool = False
-    dataset_name: str = 'unknown'
     adaptive_tokenization: bool = False
     deepspeed: Optional[str] = None
 

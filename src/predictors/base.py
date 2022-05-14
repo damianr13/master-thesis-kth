@@ -49,6 +49,7 @@ class DeepLearningHyperparameters(BaseModel):
 class BaseTransformerClassifierConfig(BaseModel):
     transformer_name: str = 'distilbert-base-uncased'
     max_tokens: int = 256
+    dataset_name: str = 'unknown'
 
 
 class ClassificationDataset(Dataset):
