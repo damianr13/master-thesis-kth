@@ -134,11 +134,13 @@ class TransformerLMPredictor(BasePredictor, ABC):
             run_name = output_split[-2] + '_' + output_split[-1]
             run = wandb.init(project="master-thesis", entity="damianr13", config=run_config, name=run_name)
 
+        if arguments.no_train:
+            return
+
         if not checkpoint_path:
             utils.seed_all(seed)
             trainer.train()
         else:
-            trainer.num_train_epochs = 50
             trainer.train(resume_from_checkpoint=checkpoint_path)
 
         if evaluate:
