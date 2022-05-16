@@ -302,14 +302,14 @@ if __name__ == "__main__":
         #     "standardizer": "wdc",
         #     "known_clusters": True
         # },
-        # {
-        #     "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_medium_0.25.json'),
-        #     "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'wdc_computers_medium.json'),
-        #     "predictor_path": os.path.join('configs', 'model_train', 'contrastive', 'sampled',
-        #                                    'unfreeze_no-aug_batch-pt128_sample25_wdc-computers-medium.json'),
-        #     "standardizer": "wdc",
-        #     "known_clusters": True
-        # },
+        {
+            "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_medium_0.25.json'),
+            "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'wdc_computers_medium.json'),
+            "predictor_path": os.path.join('configs', 'model_train', 'contrastive', 'sampled',
+                                           'unfreeze_no-aug_batch-pt128_sample25_wdc-computers-medium.json'),
+            "standardizer": "wdc",
+            "known_clusters": True
+        },
         {
             "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_medium.json'),
             "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'wdc_computers_medium.json'),
@@ -326,14 +326,14 @@ if __name__ == "__main__":
         #     "standardizer": "wdc",
         #     "known_clusters": True
         # },
-        # {
-        #     "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_medium_0.75.json'),
-        #     "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'wdc_computers_medium.json'),
-        #     "predictor_path": os.path.join('configs', 'model_train', 'contrastive', 'sampled',
-        #                                    'unfreeze_no-aug_batch-pt128_sample75_wdc-computers-medium.json'),
-        #     "standardizer": "wdc",
-        #     "known_clusters": True
-        # },
+        {
+            "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_medium_0.75.json'),
+            "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'wdc_computers_medium.json'),
+            "predictor_path": os.path.join('configs', 'model_train', 'contrastive', 'sampled',
+                                           'unfreeze_no-aug_batch-pt128_sample75_wdc-computers-medium.json'),
+            "standardizer": "wdc",
+            "known_clusters": True
+        },
         # {
         #     "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_medium_0.75.json'),
         #     "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'wdc_computers_medium.json'),
