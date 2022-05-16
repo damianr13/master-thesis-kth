@@ -1,0 +1,10 @@
+{
+  "transformer_name": "huawei-noah/TinyBERT_General_4L_312D",
+  "dataset_name": "amazon_google",
+  "max_tokens": 256,
+  "hyperparameters": {
+    "learning_rate": 3e-5,
+    "batch_size": 64,
+    "epochs": 30
+  }
+}
