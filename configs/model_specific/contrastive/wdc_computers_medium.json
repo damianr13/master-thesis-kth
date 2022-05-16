@@ -15,7 +15,7 @@
   },
   "left_id_column": "left_id",
   "right_id_column": "right_id",
-  "pretrain_used_datasets": ["train.csv"],
+  "pretrain_used_datasets": ["train.csv", "valid.csv"],
   "pretrain_sample": 0.8,
   "label_column": "label"
 }
