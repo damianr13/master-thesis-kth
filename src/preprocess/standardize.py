@@ -28,18 +28,31 @@ class BaseStandardizer(BasePreprocessor, Generic[T], ABC):
             return df
 
         left_ids = pd.Series(df['left_id'].unique()).sample(frac=self.config.train_sample_frac)
+        weighted_df = df[df['left_id'].isin(left_ids)].copy()
+        weights = weighted_df[['left_id', 'right_id']].groupby('right_id').count().rename(
+            columns={'left_id': 'right_weight'})
+        weighted_df = weighted_df.merge(weights, left_on='right_id', right_index=True)
+
+        right_paired_ids = weighted_df.groupby('left_id', group_keys=False).apply(
+            lambda s: s.sample(1, weights=weighted_df['right_weight']))['right_id'].unique()
+        right_paired_ids = pd.Series(right_paired_ids)
+
         right_matching_ids = df[df['left_id'].isin(left_ids) & (df['label'] == 1)]['right_id'] \
             .unique()
         right_matching_ids = pd.Series(right_matching_ids)
         right_ids = right_matching_ids.sample(frac=self.config.train_sample_frac)
+        right_ids = pd.concat([right_ids, right_paired_ids]).unique()
+        right_ids = pd.Series(right_ids)
 
         right_all_ids = pd.Series(df['right_id'].unique())
 
         already_sampled_frac = len(right_ids) / len(right_all_ids)
-        to_sample = self.config.train_sample_frac - already_sampled_frac
+        right_ids_pool = df[(df['left_id'].isin(left_ids))
+                                       & (~df['right_id'].isin(right_ids))]['right_id'].unique()
+        right_ids_pool = pd.Series(right_ids_pool)
 
-        right_other_ids: pd.Series = right_all_ids[~right_all_ids.isin(right_ids)]
-        right_ids = pd.concat([right_ids, right_other_ids.sample(frac=to_sample)])
+        to_sample = (self.config.train_sample_frac - already_sampled_frac) * len(right_all_ids) / len(right_ids_pool)
+        right_ids = pd.concat([right_ids, right_ids_pool.sample(frac=to_sample)])
 
         return df[df['left_id'].isin(left_ids) & df['right_id'].isin(right_ids)]
 
