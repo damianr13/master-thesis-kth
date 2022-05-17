@@ -1,14 +1,14 @@
 import glob
-import math
 import os
 from abc import ABC
 from typing import Dict, TypeVar, Generic
 
+import numpy as np
 import pandas as pd
 from pandas import DataFrame
 
-from src import utils
-from src.preprocess.configs import WDCStandardizerConfig, BasePreprocConfig, BaseStandardizerConfig
+from src.preprocess.configs import WDCStandardizerConfig, BaseStandardizerConfig, \
+    CSVNoSplitStandardizerConfig
 from src.preprocess.definitions import BasePreprocessor
 
 T = TypeVar("T", bound=BaseStandardizerConfig)
@@ -147,3 +147,55 @@ class JSONLStandardizer(BaseStandardizer):
 
         # a bit hardcoded for now, but let's see if this becomes an issue
         return result.rename(columns={'left_product_id': 'left_cluster_id', 'right_product_id': 'right_cluster_id'})
+
+
+class CSVNoSplitStandardizer(BaseStandardizer[CSVNoSplitStandardizerConfig]):
+    """
+    Standardizer that reads plain csv files with the necessary information, but which are not split into
+    train, validation and test sets.
+
+    This standardizer performs the split according to the configured weights for each set
+    """
+
+    def __init__(self, config_path: str):
+        super(CSVNoSplitStandardizer, self).__init__(config_path=config_path,
+                                                     config_instantiator=CSVNoSplitStandardizerConfig.parse_obj)
+
+    @staticmethod
+    def __apply_specific_transformations(full_df: DataFrame) -> DataFrame:
+        """
+        Super specific stuff, may require changes for different csv datasets
+        :param full_df:
+        :return:
+        """
+        # this works because of the way the dataset is created.
+        # We have an anchor product from one retailer (target), and we compare that with products from searches,
+        # thus we can expect "target_name" to be common for more pairs, while "name" to be very specific so we can
+        # assign individual ids to each offer on the right
+        full_df['left_id'] = full_df.groupby('target_name').ngroup()
+        full_df['right_id'] = np.arange(0, len(full_df))
+
+        # change the label from string to integer
+        full_df['label'] = full_df['label'].apply(lambda l: 1 if l == 'perfect' else 0)
+
+        return full_df
+
+    def preprocess_all(self, df_for_location: Dict[str, DataFrame]) -> Dict[str, DataFrame]:
+        full_df = next(iter(df_for_location.values()))
+        full_df = self.__apply_specific_transformations(full_df)
+
+        splits = self.config.split_weights.values()
+        # normalize splits
+        splits = [s / sum(splits) for s in splits]
+        # transform to cumulated and remove the last element (always 1)
+        cumulated_splits = [sum(splits[0: i+1]) for i in range(len(splits) - 1)]
+        # to absolute count
+        cumulated_splits = [int(s * len(full_df)) for s in cumulated_splits]
+
+        columns = full_df.columns
+        split_list = np.split(full_df.sample(frac=1).values, cumulated_splits)
+        target_names = self.config.split_weights.keys()
+        result = dict(zip(target_names, split_list))
+        result = {k: pd.DataFrame(v, columns=columns) for k, v in result.items()}
+
+        return super().preprocess_all(result)

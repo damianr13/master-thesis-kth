@@ -20,7 +20,7 @@ from src.preprocess.model_specific.contrastive import ContrastivePreprocessorKno
 from src.preprocess.model_specific.ditto import DittoPreprocessor
 from src.preprocess.model_specific.word_cooc import WordCoocPreprocessor
 from src.preprocess.standardize import RelationalDatasetStandardizer, WDCDatasetStandardizer, JSONLStandardizer, \
-    BaseStandardizer
+    BaseStandardizer, CSVNoSplitStandardizer
 from src.utils import seed_all
 
 
@@ -45,39 +45,48 @@ def run_experiments_for_predictor(predictor: BasePredictor,
                                   preproc_for_model: Optional[str] = None) -> None:
     if not preproc_for_model:
         preproc_for_model = predictor.name
+    #
+    # model_name, f1 = run_pipeline(stand_config=os.path.join('configs', 'stands_tasks', 'abt_buy.json'),
+    #                               preproc_config=os.path.join('configs',
+    #                                                           'model_specific',
+    #                                                           preproc_for_model,
+    #                                                           'abt_buy.json'),
+    #                               predictor=predictor)
+    # results_table.add_data('abt_buy', model_name, f1)
+    #
+    # model_name, f1 = run_pipeline(stand_config=os.path.join('configs', 'stands_tasks', 'amazon_google.json'),
+    #                               preproc_config=os.path.join('configs',
+    #                                                           'model_specific',
+    #                                                           preproc_for_model,
+    #                                                           'amazon_google.json'),
+    #                               predictor=predictor)
+    # results_table.add_data('amazon_google', model_name, f1)
+    #
+    # model_name, f1 = run_pipeline(stand_config=os.path.join('configs', 'stands_tasks', 'wdc_computers_large.json'),
+    #                               preproc_config=os.path.join('configs',
+    #                                                           'model_specific',
+    #                                                           preproc_for_model,
+    #                                                           'wdc_computers_large.json'),
+    #                               predictor=predictor,
+    #                               standardizer_init=WDCDatasetStandardizer)
+    # results_table.add_data('wdc_computers_large', model_name, f1)
+    #
+    # model_name, f1 = run_pipeline(stand_config=os.path.join('configs', 'stands_tasks', 'proprietary.json'),
+    #                               preproc_config=os.path.join('configs',
+    #                                                           'model_specific',
+    #                                                           preproc_for_model,
+    #                                                           'proprietary.json'),
+    #                               predictor=predictor,
+    #                               standardizer_init=JSONLStandardizer)
+    # results_table.add_data('proprietary', model_name, f1)
 
-    model_name, f1 = run_pipeline(stand_config=os.path.join('configs', 'stands_tasks', 'abt_buy.json'),
+    model_name, f1 = run_pipeline(stand_config=os.path.join('configs', 'stands_tasks', 'proprietary_scarce.json'),
                                   preproc_config=os.path.join('configs',
                                                               'model_specific',
                                                               preproc_for_model,
-                                                              'abt_buy.json'),
-                                  predictor=predictor)
-    results_table.add_data('abt_buy', model_name, f1)
-
-    model_name, f1 = run_pipeline(stand_config=os.path.join('configs', 'stands_tasks', 'amazon_google.json'),
-                                  preproc_config=os.path.join('configs',
-                                                              'model_specific',
-                                                              preproc_for_model,
-                                                              'amazon_google.json'),
-                                  predictor=predictor)
-    results_table.add_data('amazon_google', model_name, f1)
-
-    model_name, f1 = run_pipeline(stand_config=os.path.join('configs', 'stands_tasks', 'wdc_computers_large.json'),
-                                  preproc_config=os.path.join('configs',
-                                                              'model_specific',
-                                                              preproc_for_model,
-                                                              'wdc_computers_large.json'),
+                                                              'proprietary_scarce.json'),
                                   predictor=predictor,
-                                  standardizer_init=WDCDatasetStandardizer)
-    results_table.add_data('wdc_computers_large', model_name, f1)
-
-    model_name, f1 = run_pipeline(stand_config=os.path.join('configs', 'stands_tasks', 'proprietary.json'),
-                                  preproc_config=os.path.join('configs',
-                                                              'model_specific',
-                                                              preproc_for_model,
-                                                              'proprietary.json'),
-                                  predictor=predictor,
-                                  standardizer_init=JSONLStandardizer)
+                                  standardizer_init=CSVNoSplitStandardizer)
     results_table.add_data('proprietary', model_name, f1)
 
 
@@ -119,6 +128,9 @@ def standardizer_for_name(name: str, config_path: str) -> BaseStandardizer:
 
     if name == 'relational':
         return RelationalDatasetStandardizer(config_path=config_path)
+
+    if name == 'csv_no_split':
+        return CSVNoSplitStandardizer(config_path=config_path)
 
     raise Exception("Unknown standardizer requested")
 
@@ -200,6 +212,20 @@ def run_experiments(arguments: ExperimentsArgumentParser,
         experiment_function(experiment_config, arguments)
 
 
+def launch_secondary_sequence(arguments: ExperimentsArgumentParser):
+    proprietary_scarce_supcon_experiments = [
+        {
+            "stand_path": os.path.join('configs', 'stands_tasks', 'proprietary_scarce.json'),
+            "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'proprietary_scarce.json'),
+            "predictor_path": os.path.join('configs', 'model_train', 'contrastive', 'sampled',
+                                           'frozen_no-aug_batch-pt128_proprietary-scarce.json'),
+            "standardizer": "csv_no_split",
+            "known_clusters": False
+        },
+    ]
+    run_experiments(arguments, proprietary_scarce_supcon_experiments, run_single_supcon_experiment)
+
+
 if __name__ == "__main__":
     start = datetime.now()
     args = ExperimentsArgumentParser().parse_args()
@@ -207,6 +233,10 @@ if __name__ == "__main__":
     print(os.getcwd())
     seed_all(42)
     torch.cuda.seed_all()
+
+    if args.secondary_sequence:
+        launch_secondary_sequence(args)
+        exit(0)
 
     ditto_experiments = [
         # # =========================== wdc_computers_medium ===========================================

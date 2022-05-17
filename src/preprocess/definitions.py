@@ -18,6 +18,8 @@ class BasePreprocessor(Generic[T], ABC):
         self.config = utils.load_as_object(config_path, config_instantiator)
 
     def extract_relevant_columns_one(self, df: DataFrame) -> DataFrame:
+        if self.config.rename_columns is not None:
+            df = df.rename(columns=self.config.rename_columns)
         relevant_column_names = [f'left_{c}' for c in self.config.relevant_columns] + \
                                 [f'right_{c}' for c in self.config.relevant_columns] + \
                                 ['label']
@@ -42,18 +44,21 @@ class BasePreprocessor(Generic[T], ABC):
             print(f'All files are already in place, skipping step for target location: {target_location}')
             return
 
-        if not os.path.exists(target_location):
-            os.makedirs(target_location)
-
         df_for_location: Dict[str, DataFrame] = {}
         for source, target in self.config.split_files.items():
             part_refs = self.read_one_split_file(os.path.join(original_location, source))
             part_stand = self.preprocess_one(part_refs)
 
-            df_for_location[target] = part_stand
+            if target not in df_for_location:
+                df_for_location[target] = pd.DataFrame()
+
+            df_for_location[target] = pd.concat([df_for_location[target], part_stand])
 
         df_for_location = self.preprocess_all(df_for_location)
         df_for_location = self.extract_relevant_columns(df_for_location)
+
+        if not os.path.exists(target_location):
+            os.makedirs(target_location)
 
         for location, df in df_for_location.items():
             df.to_csv(os.path.join(target_location, location), index=False)

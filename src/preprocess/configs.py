@@ -16,12 +16,15 @@ class ExperimentsArgumentParser(Tap):
     warmup_ratio: Optional[float] = None
     weight_decay: Optional[float] = None
 
+    secondary_sequence: bool = False  # Whether we should launch the secondary 'test' objective of the program
+
 
 class BasePreprocConfig(BaseModel):
     original_location: str = None
     target_location: str = None
     split_files: Dict[str, str]
     relevant_columns: List[str]
+    rename_columns: Optional[Dict[str, str]]
 
 
 class BaseStandardizerConfig(BasePreprocConfig):
@@ -31,6 +34,10 @@ class BaseStandardizerConfig(BasePreprocConfig):
 class WDCStandardizerConfig(BaseStandardizerConfig):
     train_valid_split_file: str
     intermediate_train_valid_name: str
+
+
+class CSVNoSplitStandardizerConfig(BaseStandardizerConfig):
+    split_weights: Dict[str, float]
 
 
 class ModelSpecificPreprocessConfig(BasePreprocConfig):

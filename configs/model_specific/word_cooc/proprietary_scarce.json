@@ -1,0 +1,10 @@
+{
+  "original_location": "data/interim/proprietary_scarce/",
+  "target_location": "data/processed/word_cooc/proprietary_scarce/",
+  "split_files": {
+    "train.csv": "train.csv",
+    "test.csv": "test.csv",
+    "valid.csv": "valid.csv"
+  },
+  "relevant_columns": ["name"]
+}
