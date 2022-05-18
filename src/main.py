@@ -343,7 +343,7 @@ if __name__ == "__main__":
         {
             "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_medium.json'),
             "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'wdc_computers_medium.json'),
-            "predictor_path": os.path.join('configs', 'model_train', 'contrastive', 'sampled',
+            "predictor_path": os.path.join('configs', 'model_train', 'contrastive',
                                            'unfrozen_no-aug_batch-pt128_wdc-computers-medium.json'),
             "standardizer": "wdc",
             "known_clusters": True
