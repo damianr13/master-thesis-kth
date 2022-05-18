@@ -450,7 +450,7 @@ if __name__ == "__main__":
         {
             "stand_path": os.path.join('configs', 'stands_tasks', 'amazon_google.json'),
             "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'amazon_google.json'),
-            "predictor_path": os.path.join('configs', 'model_train', 'contrastive', 'sampled',
+            "predictor_path": os.path.join('configs', 'model_train', 'contrastive',
                                            'unfrozen_no-aug_batch-pt128_amazon-google.json'),
             "standardizer": "relational",
             "known_clusters": False
@@ -560,7 +560,7 @@ if __name__ == "__main__":
         {
             "stand_path": os.path.join('configs', 'stands_tasks', 'abt_buy.json'),
             "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'abt_buy.json'),
-            "predictor_path": os.path.join('configs', 'model_train', 'contrastive', 'sampled',
+            "predictor_path": os.path.join('configs', 'model_train', 'contrastive',
                                            'unfrozen_no-aug_batch-pt128_abt-buy.json'),
             "standardizer": "relational",
             "known_clusters": False
