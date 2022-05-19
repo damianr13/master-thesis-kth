@@ -213,12 +213,32 @@ def run_experiments(arguments: ExperimentsArgumentParser,
 
 
 def launch_secondary_sequence(arguments: ExperimentsArgumentParser):
+    proprietary_scarce_ditto_experiments = [
+        {
+            "stand_path": os.path.join('configs', 'stands_tasks', 'proprietary_scarce.json'),
+            "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'proprietary_scarce.json'),
+            "predictor_path": os.path.join('configs', 'model_train', 'ditto',
+                                           'ditto_proprietary-scarce.json'),
+            "standardizer": "csv_no_split",
+        },
+    ]
+
+    run_experiments(arguments, proprietary_scarce_ditto_experiments, run_single_ditto_experiment)
+
     proprietary_scarce_supcon_experiments = [
         {
             "stand_path": os.path.join('configs', 'stands_tasks', 'proprietary_scarce.json'),
             "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'proprietary_scarce.json'),
-            "predictor_path": os.path.join('configs', 'model_train', 'contrastive', 'sampled',
+            "predictor_path": os.path.join('configs', 'model_train', 'contrastive',
                                            'frozen_no-aug_batch-pt128_proprietary-scarce.json'),
+            "standardizer": "csv_no_split",
+            "known_clusters": False
+        },
+        {
+            "stand_path": os.path.join('configs', 'stands_tasks', 'proprietary_scarce.json'),
+            "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'proprietary_scarce.json'),
+            "predictor_path": os.path.join('configs', 'model_train', 'contrastive',
+                                           'unfreeze_no-aug_batch-pt128_proprietary-scarce.json'),
             "standardizer": "csv_no_split",
             "known_clusters": False
         },
