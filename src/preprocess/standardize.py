@@ -27,7 +27,8 @@ class BaseStandardizer(BasePreprocessor, Generic[T], ABC):
         if self.config.train_sample_frac >= 1:
             return df
 
-        left_ids = pd.Series(df['left_id'].unique()).sample(frac=self.config.train_sample_frac)
+        left_ids = pd.Series(df['left_id'].unique()).sample(
+            frac=self.config.train_sample_frac)
         weighted_df = df[df['left_id'].isin(left_ids)].copy()
         weights = weighted_df[['left_id', 'right_id']].groupby('right_id').count().rename(
             columns={'left_id': 'right_weight'})
@@ -48,7 +49,7 @@ class BaseStandardizer(BasePreprocessor, Generic[T], ABC):
 
         already_sampled_frac = len(right_ids) / len(right_all_ids)
         right_ids_pool = df[(df['left_id'].isin(left_ids))
-                                       & (~df['right_id'].isin(right_ids))]['right_id'].unique()
+                            & (~df['right_id'].isin(right_ids))]['right_id'].unique()
         right_ids_pool = pd.Series(right_ids_pool)
 
         to_sample = (self.config.train_sample_frac - already_sampled_frac) * len(right_all_ids) / len(right_ids_pool)
@@ -109,7 +110,7 @@ class WDCDatasetStandardizer(BaseStandardizer[WDCStandardizerConfig]):
         train_valid_df = df_for_location[self.config.intermediate_train_valid_name]
         train_valid_split = pd.read_csv(os.path.join(self.config.original_location, self.config.train_valid_split_file))
 
-        train_valid_split[['id_left', 'id_right']] = train_valid_split['pair_id']\
+        train_valid_split[['id_left', 'id_right']] = train_valid_split['pair_id'] \
             .str.split('#', 1, expand=True).astype(int)
         valid_df = train_valid_df[train_valid_df.set_index(['id_left', 'id_right']).index.isin(
             train_valid_split.set_index(['id_left', 'id_right']).index)]
@@ -130,6 +131,7 @@ class JSONLStandardizer(BaseStandardizer):
     Standardizer for inputs in the jsonl format, split in different files. This is the format exported by a Spark job
     for example
     """
+
     def __init__(self, config_path):
         super(JSONLStandardizer, self).__init__(config_path=config_path,
                                                 config_instantiator=BaseStandardizerConfig.parse_obj)
@@ -188,7 +190,7 @@ class CSVNoSplitStandardizer(BaseStandardizer[CSVNoSplitStandardizerConfig]):
         # normalize splits
         splits = [s / sum(splits) for s in splits]
         # transform to cumulated and remove the last element (always 1)
-        cumulated_splits = [sum(splits[0: i+1]) for i in range(len(splits) - 1)]
+        cumulated_splits = [sum(splits[0: i + 1]) for i in range(len(splits) - 1)]
         # to absolute count
         cumulated_splits = [int(s * len(full_df)) for s in cumulated_splits]
 
