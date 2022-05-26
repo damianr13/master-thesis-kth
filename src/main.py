@@ -90,8 +90,9 @@ def run_experiments_for_predictor(predictor: BasePredictor,
     results_table.add_data('proprietary', model_name, f1)
 
 
-def run_baseline_experiments():
-    wandb.init(project="master-thesis", entity="damianr13")
+def run_baseline_experiments(arguments: ExperimentsArgumentParser):
+    if not arguments.debug:
+        wandb.init(project="master-thesis", entity="damianr13")
     f1_table = wandb.Table(columns=['experiment', 'model', 'score'])
 
     run_experiments_for_predictor(
@@ -108,7 +109,10 @@ def run_baseline_experiments():
     #                               preproc_for_model='word_cooc',
     #                               results_table=f1_table)
 
-    wandb.log({"f1_scores": f1_table})
+    if not arguments.debug:
+        wandb.log({"f1_scores": f1_table})
+    else:
+        print(f1_table)
 
 
 class ExperimentConfig(BaseModel):
@@ -213,7 +217,7 @@ def run_experiments(arguments: ExperimentsArgumentParser,
 
 
 def launch_secondary_sequence(arguments: ExperimentsArgumentParser):
-    run_baseline_experiments()
+    run_baseline_experiments(arguments)
 
 
 if __name__ == "__main__":
