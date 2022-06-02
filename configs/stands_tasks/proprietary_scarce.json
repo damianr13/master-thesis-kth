@@ -3,13 +3,9 @@
   "target_location": "data/interim/proprietary_scarce/",
   "relevant_columns": ["id", "name"],
   "split_files": {
-    "split1.csv": "",
-    "split2.csv": ""
-  },
-  "split_weights": {
-    "train.csv": 0.8,
-    "valid.csv": 0.1,
-    "test.csv": 0.1
+    "train.csv": "train.csv",
+    "valid.csv": "valid.csv",
+    "test.csv": "test.csv"
   },
   "rename_columns": {
     "name": "right_name",

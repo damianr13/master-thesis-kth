@@ -9,7 +9,7 @@ import torch.cuda
 import wandb
 from pandas import DataFrame
 from pydantic import BaseModel
-from sklearn.metrics import f1_score
+from sklearn.metrics import f1_score, precision_score, recall_score, confusion_matrix
 from torch.utils.data import Dataset
 from transformers import Trainer, TrainingArguments, IntervalStrategy, SchedulerType, PreTrainedTokenizer, \
     PreTrainedModel, AutoTokenizer, AutoModel, EvalPrediction
@@ -111,7 +111,21 @@ class TransformerLMPredictor(BasePredictor, ABC):
         labels = labels.reshape(-1)
 
         f1 = f1_score(labels, pred, pos_label=1, average='binary')
-        return {'f1': f1}
+        precision = precision_score(labels, pred, pos_label=1, average='binary')
+        recall = recall_score(labels, pred, pos_label=1, average='binary')
+
+        # source:
+        # https://newbedev.com/scikit-learn-how-to-obtain-true-positive-true-negative-false-positive-and-false-negative
+        confusion = confusion_matrix(labels, pred)
+        fp = confusion[0][1]
+        fn = confusion[1][0]
+        tp = confusion[1][1]
+        tn = confusion[0][0]
+
+        fpr = fp / (fp + tn)
+        fnr = fn / (fn + tp)
+
+        return {'f1': f1, 'precision': precision, 'recall': recall, 'fpr': fpr, 'fnr': fnr}
 
     def perform_training(self, trainer: Trainer,
                          arguments: ExperimentsArgumentParser, output: str,
@@ -155,6 +169,8 @@ class TransformerLMPredictor(BasePredictor, ABC):
 
         if not arguments.save_checkpoints:
             shutil.rmtree(output)
+
+        self.trainer = trainer
 
     @staticmethod
     def _download_wandb_model(target: str, output: str) -> Optional[str]:
@@ -246,7 +262,6 @@ class TransformerLMPredictor(BasePredictor, ABC):
         model = self.instantiate_classifier_model()
         model.load_state_dict(checkpoint)
 
-        # no sense of passing debug flag here since the model is only loaded and not trained
         collator = self.instantiate_classifier_collator()
         self.trainer = Trainer(model=model, data_collator=collator,
                                compute_metrics=self.compute_metrics)

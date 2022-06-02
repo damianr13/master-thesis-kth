@@ -36,10 +36,6 @@ class WDCStandardizerConfig(BaseStandardizerConfig):
     intermediate_train_valid_name: str
 
 
-class CSVNoSplitStandardizerConfig(BaseStandardizerConfig):
-    split_weights: Dict[str, float]
-
-
 class ModelSpecificPreprocessConfig(BasePreprocConfig):
     def __init__(self, **data):
         super(ModelSpecificPreprocessConfig, self).__init__(**data)

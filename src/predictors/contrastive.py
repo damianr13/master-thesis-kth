@@ -590,7 +590,6 @@ class ContrastivePredictor(TransformerLMPredictor):
                               finish_run=self.config.unfreeze, seed=self.TRAIN_SEED)
 
         self.report = report
-        self.trainer = trainer
 
         # unfreeze the transformer after head has been initialized properly
         if self.config.frozen and self.config.unfreeze:
@@ -608,8 +607,6 @@ class ContrastivePredictor(TransformerLMPredictor):
                                                    allow_early_stop=False)
             self.perform_training(trainer2, arguments=arguments, output=output_train_2, target='train_2',
                                   finish_run=False, seed=self.TRAIN_2_SEED)
-
-            self.trainer = trainer2
 
     def get_train_hyperparameters(self) -> DeepLearningHyperparameters:
         return self.config.train_specific

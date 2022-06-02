@@ -7,8 +7,7 @@ import numpy as np
 import pandas as pd
 from pandas import DataFrame
 
-from src.preprocess.configs import WDCStandardizerConfig, BaseStandardizerConfig, \
-    CSVNoSplitStandardizerConfig
+from src.preprocess.configs import WDCStandardizerConfig, BaseStandardizerConfig
 from src.preprocess.definitions import BasePreprocessor
 
 T = TypeVar("T", bound=BaseStandardizerConfig)
@@ -151,17 +150,16 @@ class JSONLStandardizer(BaseStandardizer):
         return result.rename(columns={'left_product_id': 'left_cluster_id', 'right_product_id': 'right_cluster_id'})
 
 
-class CSVNoSplitStandardizer(BaseStandardizer[CSVNoSplitStandardizerConfig]):
+class CSVNoSplitStandardizer(BaseStandardizer[BaseStandardizerConfig]):
     """
-    Standardizer that reads plain csv files with the necessary information, but which are not split into
-    train, validation and test sets.
+    Standardizer for reading the proprietary scarce dataset.
 
-    This standardizer performs the split according to the configured weights for each set
+    This dataset is strictly made out of pairs without ids assigned, and this class is taking care of that
     """
 
     def __init__(self, config_path: str):
         super(CSVNoSplitStandardizer, self).__init__(config_path=config_path,
-                                                     config_instantiator=CSVNoSplitStandardizerConfig.parse_obj)
+                                                     config_instantiator=BaseStandardizerConfig.parse_obj)
 
     @staticmethod
     def __apply_specific_transformations(full_df: DataFrame) -> DataFrame:
@@ -182,22 +180,32 @@ class CSVNoSplitStandardizer(BaseStandardizer[CSVNoSplitStandardizerConfig]):
 
         return full_df
 
+    @staticmethod
+    def __apply_globally_unique_pair_ids(df_for_location: Dict[str, DataFrame]) -> Dict[str, DataFrame]:
+        next_id = 0
+        for df in df_for_location.values():
+            df['pair_id'] = np.arange(next_id, next_id + len(df))
+            next_id += len(df)
+
+        return df_for_location
+
+    @staticmethod
+    def __merge_for_ids(df: DataFrame, full_df: DataFrame) -> DataFrame:
+        """
+        Takes a dataframe without assigned ids, and a dataframe with all the rows with ids assigned and maps back the
+        ids in the full dataframe to the smaller one
+        :param df:
+        :param full_df:
+        :return:
+        """
+        return df.drop(columns=['label']).set_index('pair_id').join(
+            full_df[['pair_id', 'left_id', 'right_id', 'label']].set_index('pair_id'))
+
     def preprocess_all(self, df_for_location: Dict[str, DataFrame]) -> Dict[str, DataFrame]:
-        full_df = next(iter(df_for_location.values()))
+        df_for_location = self.__apply_globally_unique_pair_ids(df_for_location)
+        full_df = pd.concat(df_for_location.values())
         full_df = self.__apply_specific_transformations(full_df)
 
-        splits = self.config.split_weights.values()
-        # normalize splits
-        splits = [s / sum(splits) for s in splits]
-        # transform to cumulated and remove the last element (always 1)
-        cumulated_splits = [sum(splits[0: i + 1]) for i in range(len(splits) - 1)]
-        # to absolute count
-        cumulated_splits = [int(s * len(full_df)) for s in cumulated_splits]
-
-        columns = full_df.columns
-        split_list = np.split(full_df.sample(frac=1).values, cumulated_splits)
-        target_names = self.config.split_weights.keys()
-        result = dict(zip(target_names, split_list))
-        result = {k: pd.DataFrame(v, columns=columns) for k, v in result.items()}
+        result = {k: self.__merge_for_ids(v, full_df) for k, v in df_for_location.items()}
 
         return super().preprocess_all(result)

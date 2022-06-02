@@ -26,7 +26,8 @@ from src.utils import seed_all
 
 def run_pipeline(stand_config: str, preproc_config: str, predictor: BasePredictor,
                  standardizer_init: Callable[[str], BasePreprocessor] = RelationalDatasetStandardizer,
-                 preprocessor_init: Callable[[str], BasePreprocessor] = WordCoocPreprocessor) -> Tuple[str, float]:
+                 preprocessor_init: Callable[[str], BasePreprocessor] = WordCoocPreprocessor,
+                 arguments: ExperimentsArgumentParser = ExperimentsArgumentParser()) -> Tuple[str, float]:
     standardizer = standardizer_init(stand_config)
     preprocessor = preprocessor_init(preproc_config)
 
@@ -36,12 +37,16 @@ def run_pipeline(stand_config: str, preproc_config: str, predictor: BasePredicto
     valid_df = pd.read_csv(os.path.join(preprocessor.config.target_location, 'valid.csv'))
     test_df = pd.read_csv(os.path.join(preprocessor.config.target_location, 'test.csv'))
 
+    if arguments.no_train:
+        return predictor.name, 0
+
     predictor.train(train_df, valid_df)
     return predictor.name, predictor.test(test_df)
 
 
 def run_experiments_for_predictor(predictor: BasePredictor,
                                   results_table: wandb.Table,
+                                  arguments: ExperimentsArgumentParser,
                                   preproc_for_model: Optional[str] = None) -> None:
     if not preproc_for_model:
         preproc_for_model = predictor.name
@@ -51,7 +56,8 @@ def run_experiments_for_predictor(predictor: BasePredictor,
                                                               'model_specific',
                                                               preproc_for_model,
                                                               'abt_buy.json'),
-                                  predictor=predictor)
+                                  predictor=predictor,
+                                  arguments=arguments)
     results_table.add_data('abt_buy', model_name, f1)
 
     model_name, f1 = run_pipeline(stand_config=os.path.join('configs', 'stands_tasks', 'amazon_google.json'),
@@ -59,7 +65,8 @@ def run_experiments_for_predictor(predictor: BasePredictor,
                                                               'model_specific',
                                                               preproc_for_model,
                                                               'amazon_google.json'),
-                                  predictor=predictor)
+                                  predictor=predictor,
+                                  arguments=arguments)
     results_table.add_data('amazon_google', model_name, f1)
 
     model_name, f1 = run_pipeline(stand_config=os.path.join('configs', 'stands_tasks', 'wdc_computers_large.json'),
@@ -68,7 +75,8 @@ def run_experiments_for_predictor(predictor: BasePredictor,
                                                               preproc_for_model,
                                                               'wdc_computers_large.json'),
                                   predictor=predictor,
-                                  standardizer_init=WDCDatasetStandardizer)
+                                  standardizer_init=WDCDatasetStandardizer,
+                                  arguments=arguments)
     results_table.add_data('wdc_computers_large', model_name, f1)
 
     model_name, f1 = run_pipeline(stand_config=os.path.join('configs', 'stands_tasks', 'proprietary.json'),
@@ -77,7 +85,8 @@ def run_experiments_for_predictor(predictor: BasePredictor,
                                                               preproc_for_model,
                                                               'proprietary.json'),
                                   predictor=predictor,
-                                  standardizer_init=JSONLStandardizer)
+                                  standardizer_init=JSONLStandardizer,
+                                  arguments=arguments)
     results_table.add_data('proprietary', model_name, f1)
 
     model_name, f1 = run_pipeline(stand_config=os.path.join('configs', 'stands_tasks', 'proprietary_scarce.json'),
@@ -86,7 +95,8 @@ def run_experiments_for_predictor(predictor: BasePredictor,
                                                               preproc_for_model,
                                                               'proprietary_scarce.json'),
                                   predictor=predictor,
-                                  standardizer_init=CSVNoSplitStandardizer)
+                                  standardizer_init=CSVNoSplitStandardizer,
+                                  arguments=arguments)
     results_table.add_data('proprietary', model_name, f1)
 
 
@@ -97,7 +107,8 @@ def run_baseline_experiments(arguments: ExperimentsArgumentParser):
 
     run_experiments_for_predictor(
         predictor=WordCoocPredictor(os.path.join('configs', 'model_train', 'word_cooc.json')),
-        results_table=f1_table)
+        results_table=f1_table,
+        arguments=arguments)
     #
     # run_experiments_for_predictor(predictor=AllMatchPredictor(), preproc_for_model='word_cooc', results_table=f1_table)
     #
@@ -112,7 +123,7 @@ def run_baseline_experiments(arguments: ExperimentsArgumentParser):
     if not arguments.debug:
         wandb.log({"f1_scores": f1_table})
     else:
-        print(f1_table)
+        print(f1_table.data)
 
 
 class ExperimentConfig(BaseModel):
@@ -216,8 +227,33 @@ def run_experiments(arguments: ExperimentsArgumentParser,
         experiment_function(experiment_config, arguments)
 
 
+def load_data(path: str) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    return pd.read_csv(os.path.join(path, 'train.csv')),\
+            pd.read_csv(os.path.join(path, 'valid.csv')),\
+            pd.read_csv(os.path.join(path, 'test.csv'))
+
+
 def launch_secondary_sequence(arguments: ExperimentsArgumentParser):
-    run_baseline_experiments(arguments)
+    experiments = [
+        {
+            "stand_path": os.path.join('configs', 'stands_tasks', 'proprietary_scarce.json'),
+            "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'proprietary_scarce.json'),
+            "predictor_path": os.path.join('configs', 'model_train', 'contrastive',
+                                           'frozen_no-aug_batch-pt128_proprietary-scarce.json'),
+            "standardizer": "csv_no_split",
+            "known_clusters": False
+        },
+        {
+            "stand_path": os.path.join('configs', 'stands_tasks', 'proprietary_scarce.json'),
+            "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'proprietary_scarce.json'),
+            "predictor_path": os.path.join('configs', 'model_train', 'contrastive',
+                                           'unfreeze_no-aug_batch-pt128_proprietary-scarce.json'),
+            "standardizer": "csv_no_split",
+            "known_clusters": False
+        },
+    ]
+
+    run_experiments(arguments=arguments, experiments=experiments, experiment_function=run_single_supcon_experiment)
 
 
 if __name__ == "__main__":

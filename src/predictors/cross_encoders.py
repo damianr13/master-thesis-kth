@@ -111,8 +111,6 @@ class DittoPredictor(TransformerLMPredictor):
                               output=self.config.hyperparameters.output,
                               finish_run=False, seed=self.TRAIN_SEED)
 
-        self.trainer = trainer
-
     def load_teacher(self):
         if self.config.teacher_conf is None:
             return None
