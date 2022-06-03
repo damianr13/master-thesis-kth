@@ -1,0 +1,16 @@
+{
+  "split_files": {
+    "train.csv": "train.csv",
+    "test.csv": "test.csv",
+    "valid.csv": "valid.csv"
+  },
+  "relevant_columns": [
+    "name"
+  ],
+  "column_lengths": {
+    "name": 128
+  },
+  "left_id_column": "left_id",
+  "right_id_column": "right_id",
+  "label_column": "label"
+}
