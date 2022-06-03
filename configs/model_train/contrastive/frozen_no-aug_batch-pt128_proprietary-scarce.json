@@ -17,6 +17,6 @@
     "epochs": 50,
     "loaders": 6,
     "parallel_batches": 1,
-    "early_stop_patience": 5
+    "early_stop_patience": -1
   }
 }
