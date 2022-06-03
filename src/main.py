@@ -236,33 +236,33 @@ def load_data(path: str) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
 def launch_secondary_sequence(arguments: ExperimentsArgumentParser):
     experiments = [
         {
-            "stand_path": os.path.join('configs', 'stands_tasks', 'proprietary_scarce.json'),
-            "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'proprietary_scarce.json'),
-            "predictor_path": os.path.join('configs', 'model_train', 'contrastive',
-                                           'frozen_no-aug_batch-pt128_proprietary-scarce.json'),
-            "standardizer": "csv_no_split",
-            "known_clusters": False
+            "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_medium_0.50.json'),
+            "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'wdc_computers_medium.json'),
+            "predictor_path": os.path.join('configs', 'model_train', 'contrastive', 'sampled',
+                                           'frozen_no-aug_batch-pt128_sample50_wdc-computers-medium.json'),
+            "standardizer": "wdc",
+            "known_clusters": True
         },
         {
-            "stand_path": os.path.join('configs', 'stands_tasks', 'proprietary_scarce.json'),
-            "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'proprietary_scarce.json'),
-            "predictor_path": os.path.join('configs', 'model_train', 'contrastive',
-                                           'unfreeze_no-aug_batch-pt128_proprietary-scarce.json'),
-            "standardizer": "csv_no_split",
-            "known_clusters": False
+            "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_medium_0.50.json'),
+            "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'wdc_computers_medium.json'),
+            "predictor_path": os.path.join('configs', 'model_train', 'contrastive', 'sampled',
+                                           'unfreeze_no-aug_batch-pt128_sample50_wdc-computers-medium.json'),
+            "standardizer": "wdc",
+            "known_clusters": True
         },
     ]
 
     run_experiments(arguments=arguments, experiments=experiments, experiment_function=run_single_supcon_experiment)
 
     ditto_proprietary = [
-        {
-            "stand_path": os.path.join('configs', 'stands_tasks', 'proprietary_scarce.json'),
-            "proc_path": os.path.join('configs', 'model_specific', 'ditto', 'proprietary_scarce.json'),
-            "predictor_path": os.path.join('configs', 'model_train', 'ditto',
-                                           'ditto_proprietary-scarce.json'),
-            "standardizer": "csv_no_split"
-        }
+        # {
+        #     "stand_path": os.path.join('configs', 'stands_tasks', 'proprietary_scarce.json'),
+        #     "proc_path": os.path.join('configs', 'model_specific', 'ditto', 'proprietary_scarce.json'),
+        #     "predictor_path": os.path.join('configs', 'model_train', 'ditto',
+        #                                    'ditto_proprietary-scarce.json'),
+        #     "standardizer": "csv_no_split"
+        # }
     ]
 
     run_experiments(arguments=arguments, experiments=ditto_proprietary, experiment_function=run_single_ditto_experiment)
