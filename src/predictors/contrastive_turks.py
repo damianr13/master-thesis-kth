@@ -72,7 +72,7 @@ class ContrastivePretrainingTurksDatasetCollator(ContrastiveDataCollator):
         first_matching_offer, second_matching_offer = \
             anchor_cluster_selection.iloc[0].copy(), anchor_cluster_selection.iloc[1].copy()
 
-        return first_matching_offer, second_matching_offer, first_matching_offer['cluster_id']
+        return first_matching_offer['text'], second_matching_offer['text'], first_matching_offer['cluster_id']
 
     def __call__(self, x):
         features_left = []
@@ -88,24 +88,24 @@ class ContrastivePretrainingTurksDatasetCollator(ContrastiveDataCollator):
                 features_right.append(anchor_offer['text'])
                 labels.append(anchor_offer['cluster_id'])
             else:
-                sample_left, sample_right, label = self.__sample_pair(anchor_cluster)
+                text_left, text_right, label = self.__sample_pair(anchor_cluster)
 
-                features_left.append(sample_left)
-                features_right.append(sample_right)
+                features_left.append(text_left)
+                features_right.append(text_right)
                 labels.append(label)
 
             if len(anchor_cluster) >= 3:
-                sample_left, sample_right, label = self.__sample_pair(anchor_cluster)
+                text_left, text_right, label = self.__sample_pair(anchor_cluster)
 
-                features_left.append(sample_left)
-                features_right.append(sample_right)
+                features_left.append(text_left)
+                features_right.append(text_right)
                 labels.append(label)
 
             if len(anchor_cluster) >= 5:
-                sample_left, sample_right, label = self.__sample_pair(anchor_cluster)
+                text_left, text_right, label = self.__sample_pair(anchor_cluster)
 
-                features_left.append(sample_left)
-                features_right.append(sample_right)
+                features_left.append(text_left)
+                features_right.append(text_right)
                 labels.append(label)
 
             non_matching_pool = df[df['cluster_id'] != anchor_offer['cluster_id']]
