@@ -1,3 +1,6 @@
+from typing import Tuple
+
+import pandas as pd
 from pandas import DataFrame
 from torch.utils.data import Dataset
 
@@ -62,6 +65,15 @@ class ContrastivePretrainingTurksDatasetCollator(ContrastiveDataCollator):
     on Google Shopping and then there is a link through those offers from Google Shopping that are commonly matching
     both appearances on Fyindiq.
     """
+
+    @staticmethod
+    def __sample_pair(df: DataFrame) -> Tuple[pd.Series, pd.Series, int]:
+        anchor_cluster_selection = df.sample(2)
+        first_matching_offer, second_matching_offer = \
+            anchor_cluster_selection.iloc[0].copy(), anchor_cluster_selection.iloc[1].copy()
+
+        return first_matching_offer, second_matching_offer, first_matching_offer['cluster_id']
+
     def __call__(self, x):
         features_left = []
         features_right = []
@@ -72,11 +84,29 @@ class ContrastivePretrainingTurksDatasetCollator(ContrastiveDataCollator):
             anchor_offer = df[df['source'] == '#1'].iloc[0].copy()
             anchor_cluster = df[df['cluster_id'] == anchor_offer['cluster_id']]
             if len(anchor_cluster) < 2:
-                first_matching_offer, second_matching_offer = anchor_offer, anchor_offer
+                features_left.append(anchor_offer['text'])
+                features_right.append(anchor_offer['text'])
+                labels.append(anchor_offer['cluster_id'])
             else:
-                anchor_cluster_selection = anchor_cluster.sample(2)
-                first_matching_offer, second_matching_offer = \
-                    anchor_cluster_selection.iloc[0].copy(), anchor_cluster_selection.iloc[1].copy()
+                sample_left, sample_right, label = self.__sample_pair(anchor_cluster)
+
+                features_left.append(sample_left)
+                features_right.append(sample_right)
+                labels.append(label)
+
+            if len(anchor_cluster) >= 3:
+                sample_left, sample_right, label = self.__sample_pair(anchor_cluster)
+
+                features_left.append(sample_left)
+                features_right.append(sample_right)
+                labels.append(label)
+
+            if len(anchor_cluster) >= 5:
+                sample_left, sample_right, label = self.__sample_pair(anchor_cluster)
+
+                features_left.append(sample_left)
+                features_right.append(sample_right)
+                labels.append(label)
 
             non_matching_pool = df[df['cluster_id'] != anchor_offer['cluster_id']]
             if len(non_matching_pool) > 0:
@@ -85,10 +115,6 @@ class ContrastivePretrainingTurksDatasetCollator(ContrastiveDataCollator):
                 features_left.append(non_matching_offer['text'])
                 features_right.append(non_matching_offer['text'])
                 labels.append(non_matching_offer['cluster_id'])
-
-            features_left.append(first_matching_offer['text'])
-            features_right.append(second_matching_offer['text'])
-            labels.append(first_matching_offer['cluster_id'])
 
         batch_left = self.tokenize_features(features_left)
         batch_right = self.tokenize_features(features_right)
