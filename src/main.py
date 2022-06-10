@@ -10,8 +10,8 @@ from pydantic import BaseModel
 from src.performance.watcher import PerformanceWatcher
 from src.predictors.base import BasePredictor
 from src.predictors.contrastive import ContrastivePredictor
+from src.predictors.contrastive_turks import TurksDataContrastivePredictor
 from src.predictors.cross_encoders import DittoPredictor
-from src.predictors.dummy import AllMatchPredictor, NoMatchPredictor, BalancedPredictor, ClassDistributionAwarePredictor
 from src.predictors.word_cooc import WordCoocPredictor
 from src.preprocess.configs import ExperimentsArgumentParser
 from src.preprocess.definitions import BasePreprocessor
@@ -132,6 +132,7 @@ class ExperimentConfig(BaseModel):
     predictor_path: str
     standardizer: str
     known_clusters: bool = False
+    turk_labels: bool = False
 
 
 def standardizer_for_name(name: str, config_path: str) -> BaseStandardizer:
@@ -206,7 +207,10 @@ def run_single_supcon_experiment(experiment_config: ExperimentConfig,
     valid_set = pd.read_csv(os.path.join(default_preproc_target, 'valid.csv'))
     test_set = pd.read_csv(os.path.join(default_preproc_target, 'test.csv'))
 
-    predictor = ContrastivePredictor(config_path=experiment_config.predictor_path, report=not arguments.debug, seed=42)
+    turk_labels = experiment_config.turk_labels
+    predictor = ContrastivePredictor(config_path=experiment_config.predictor_path, report=not arguments.debug, seed=42)\
+        if not turk_labels else TurksDataContrastivePredictor(config_path=experiment_config.predictor_path,
+                                                              report=not arguments.debug, seed=42)
     predictor.pretrain(pretrain_set=pretrain_train_set, valid_set=pretrain_valid_set,
                        source_aware_sampling=not known_clusters, arguments=arguments)
     predictor.train(train_set, valid_set, arguments=arguments)
@@ -236,33 +240,33 @@ def load_data(path: str) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
 def launch_secondary_sequence(arguments: ExperimentsArgumentParser):
     experiments = [
         {
-            "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_medium_0.50.json'),
-            "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'wdc_computers_medium.json'),
-            "predictor_path": os.path.join('configs', 'model_train', 'contrastive', 'sampled',
-                                           'frozen_no-aug_batch-pt128_sample50_wdc-computers-medium.json'),
-            "standardizer": "wdc",
-            "known_clusters": True
+            "stand_path": os.path.join('configs', 'stands_tasks', 'proprietary_scarce.json'),
+            "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'proprietary_scarce.json'),
+            "predictor_path": os.path.join('configs', 'model_train', 'contrastive',
+                                           'frozen_no-aug_batch-pt128_proprietary-scarce.json'),
+            "standardizer": "csv_no_split",
+            "turk_labels": True
         },
         {
-            "stand_path": os.path.join('configs', 'stands_tasks', 'wdc_computers_medium_0.50.json'),
-            "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'wdc_computers_medium.json'),
-            "predictor_path": os.path.join('configs', 'model_train', 'contrastive', 'sampled',
-                                           'unfreeze_no-aug_batch-pt128_sample50_wdc-computers-medium.json'),
-            "standardizer": "wdc",
-            "known_clusters": True
+            "stand_path": os.path.join('configs', 'stands_tasks', 'proprietary_scarce.json'),
+            "proc_path": os.path.join('configs', 'model_specific', 'contrastive', 'proprietary_scarce.json'),
+            "predictor_path": os.path.join('configs', 'model_train', 'contrastive',
+                                           'unfreeze_no-aug_batch-pt128_proprietary-scarce.json'),
+            "standardizer": "csv_no_split",
+            "turk_labels": True
         },
     ]
 
     run_experiments(arguments=arguments, experiments=experiments, experiment_function=run_single_supcon_experiment)
 
     ditto_proprietary = [
-        # {
-        #     "stand_path": os.path.join('configs', 'stands_tasks', 'proprietary_scarce.json'),
-        #     "proc_path": os.path.join('configs', 'model_specific', 'ditto', 'proprietary_scarce.json'),
-        #     "predictor_path": os.path.join('configs', 'model_train', 'ditto',
-        #                                    'ditto_proprietary-scarce.json'),
-        #     "standardizer": "csv_no_split"
-        # }
+        {
+            "stand_path": os.path.join('configs', 'stands_tasks', 'proprietary_scarce.json'),
+            "proc_path": os.path.join('configs', 'model_specific', 'ditto', 'proprietary_scarce.json'),
+            "predictor_path": os.path.join('configs', 'model_train', 'ditto',
+                                           'ditto_proprietary-scarce.json'),
+            "standardizer": "csv_no_split"
+        }
     ]
 
     run_experiments(arguments=arguments, experiments=ditto_proprietary, experiment_function=run_single_ditto_experiment)

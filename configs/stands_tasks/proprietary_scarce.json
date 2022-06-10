@@ -1,7 +1,7 @@
 {
   "original_location": "data/raw/proprietary_scarce/",
   "target_location": "data/interim/proprietary_scarce/",
-  "relevant_columns": ["id", "name"],
+  "relevant_columns": ["id", "name", "target_id"],
   "split_files": {
     "train.csv": "train.csv",
     "valid.csv": "valid.csv",

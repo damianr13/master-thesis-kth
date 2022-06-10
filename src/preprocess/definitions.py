@@ -20,8 +20,9 @@ class BasePreprocessor(Generic[T], ABC):
     def extract_relevant_columns_one(self, df: DataFrame) -> DataFrame:
         if self.config.rename_columns is not None:
             df = df.rename(columns=self.config.rename_columns)
-        relevant_column_names = [f'left_{c}' for c in self.config.relevant_columns] + \
-                                [f'right_{c}' for c in self.config.relevant_columns] + \
+        relevant_column_names = [f'left_{c}' for c in self.config.relevant_columns if c not in df.columns] + \
+                                [f'right_{c}' for c in self.config.relevant_columns if c not in df.columns] + \
+                                [c for c in self.config.relevant_columns if c in df.columns] + \
                                 ['label']
         return df[relevant_column_names]
 

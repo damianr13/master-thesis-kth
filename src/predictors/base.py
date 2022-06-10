@@ -129,7 +129,7 @@ class TransformerLMPredictor(BasePredictor, ABC):
 
     def perform_training(self, trainer: Trainer,
                          arguments: ExperimentsArgumentParser, output: str,
-                         target: str,
+                         target: Optional[str],
                          evaluate: bool = False,
                          checkpoint_path: Optional[str] = None,
                          finish_run: bool = True, seed: int = 42):
@@ -173,13 +173,14 @@ class TransformerLMPredictor(BasePredictor, ABC):
         self.trainer = trainer
 
     @staticmethod
-    def _download_wandb_model(target: str, output: str) -> Optional[str]:
+    def _download_wandb_model(target: Optional[str], output: str) -> Optional[str]:
         client = wandb.Api()
 
-        previous_runs: Iterable[Run] = client.runs(path="damianr13/master-thesis", filters={
-            "config.output_dir": output,
-            "config.current_target": target
-        })
+        filters = {"config.output_dir": output}
+        if target is not None:
+            filters['config.current_target'] = target
+
+        previous_runs: Iterable[Run] = client.runs(path="damianr13/master-thesis", filters=filters)
 
         for run in previous_runs:
             artifacts: Iterable[wandb.Artifact] = run.logged_artifacts()

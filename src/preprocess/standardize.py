@@ -173,7 +173,7 @@ class CSVNoSplitStandardizer(BaseStandardizer[BaseStandardizerConfig]):
         # thus we can expect "target_name" to be common for more pairs, while "name" to be very specific so we can
         # assign individual ids to each offer on the right
         full_df['left_id'] = full_df.groupby('target_name').ngroup()
-        full_df['right_id'] = np.arange(0, len(full_df))
+        full_df['right_id'] = full_df.groupby('name').ngroup()
 
         # change the label from string to integer
         full_df['label'] = full_df['label'].apply(lambda l: 1 if l == 'perfect' else 0)

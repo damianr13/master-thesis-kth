@@ -5,7 +5,10 @@
     "valid.csv": "valid.csv"
   },
   "relevant_columns": [
-    "cluster_id", "name"
+    "cluster_id", "name", "target_id"
+  ],
+  "non_textual_columns": [
+    "target_id"
   ],
   "column_lengths": {
     "name": 128
@@ -13,6 +16,7 @@
   "left_id_column": "left_id",
   "right_id_column": "right_id",
   "pretrain_used_datasets": ["train.csv", "valid.csv"],
-  "pretrain_sample": 0.8,
+  "pretrain_sample": 1,
+  "pretrain_right_sample": 0.7,
   "label_column": "label"
 }

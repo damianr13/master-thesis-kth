@@ -107,7 +107,7 @@ class DittoPredictor(TransformerLMPredictor):
                           data_collator=collator,
                           compute_metrics=self.compute_metrics)
 
-        self.perform_training(trainer, arguments=arguments, target='train',
+        self.perform_training(trainer, arguments=arguments, target=None,
                               output=self.config.hyperparameters.output,
                               finish_run=False, seed=self.TRAIN_SEED)
 

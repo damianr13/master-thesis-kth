@@ -98,6 +98,7 @@ class ContrastivePretrainDatasetWithSourceAwareSampling(Dataset):
         return len(self.sources_map[self.source_list[0]])
 
     def __getitem__(self, index) -> T_co:
+        # TODO: this should not have been done here but in the collator
         data_source_index = random.randint(0, len(self.source_list) - 1)
         data_source = self.sources_map[self.source_list[data_source_index]]
 
@@ -443,10 +444,8 @@ class ContrastivePredictor(TransformerLMPredictor):
 
     def pretrain(self, pretrain_set: DataFrame, valid_set: DataFrame, arguments: ExperimentsArgumentParser,
                  source_aware_sampling: bool = True, checkpoint_path: Optional[str] = None) -> None:
-        train_dataset = ContrastivePretrainDatasetWithSourceAwareSampling(pretrain_df=pretrain_set) \
-            if source_aware_sampling else ContrastivePretrainDataset(pretrain_df=pretrain_set)
-        valid_dataset = ContrastivePretrainDatasetWithSourceAwareSampling(pretrain_df=valid_set) \
-            if source_aware_sampling else ContrastivePretrainDataset(pretrain_df=pretrain_set)
+        train_dataset = self.instantiate_pretrain_dataset(pretrain_set, source_aware_sampling)
+        valid_dataset = self.instantiate_pretrain_dataset(valid_set, source_aware_sampling)
 
         if self.config.adaptive_tokenization:
             self.perform_adaptive_tokenization(pretrain_set)
@@ -479,11 +478,7 @@ class ContrastivePredictor(TransformerLMPredictor):
                                           evaluation_strategy=IntervalStrategy.EPOCH,
                                           deepspeed=self.config.deepspeed)
 
-        collator = ContrastivePretrainingDataCollator(tokenizer=self.tokenizer,
-                                                      max_length=self.config.max_tokens,
-                                                      augment=self.config.augment,
-                                                      swap_offers=self.config.swap_offers,
-                                                      debug=arguments.debug)
+        collator = self.instantiate_pretrain_collator(arguments=arguments)
         trainer = Trainer(model=model,
                           train_dataset=train_dataset,
                           eval_dataset=valid_dataset,
@@ -616,3 +611,16 @@ class ContrastivePredictor(TransformerLMPredictor):
 
     def instantiate_classifier_collator(self) -> any:
         return ContrastiveClassifierDataCollator(self.tokenizer, self.config.max_tokens)
+
+    def instantiate_pretrain_collator(self, arguments: ExperimentsArgumentParser):
+        return ContrastivePretrainingDataCollator(tokenizer=self.tokenizer,
+                                                  max_length=self.config.max_tokens,
+                                                  augment=self.config.augment,
+                                                  swap_offers=self.config.swap_offers,
+                                                  debug=arguments.debug)
+
+    @staticmethod
+    def instantiate_pretrain_dataset(df: DataFrame, source_aware_sampling: bool = True):
+        return ContrastivePretrainDatasetWithSourceAwareSampling(pretrain_df=df) \
+            if source_aware_sampling else ContrastivePretrainDataset(pretrain_df=df)
+

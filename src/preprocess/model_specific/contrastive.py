@@ -37,13 +37,19 @@ class ContrastivePreprocessor(TransformerLMBasePreprocessor[ContrastivePreproces
         result.update(pretrain_sets)
         return result
 
-    @staticmethod
-    def extract_intermediately_relevant_columns(df) -> DataFrame:
-        return df[['left_id', 'right_id', 'left_text', 'right_text', 'label']]
+    def extract_intermediately_relevant_columns(self, df) -> DataFrame:
+        columns = ['left_id', 'right_id', 'left_text', 'right_text', 'label'] + \
+            [c for c in self.config.non_textual_columns if c in df.columns] + \
+            [f'left_{c}' for c in self.config.non_textual_columns if c not in df.columns] + \
+            [f'right_{c}' for c in self.config.non_textual_columns if c not in df.columns]
+
+        return df[columns]
 
     def _get_relevant_columns(self) -> List[str]:
         result = self.config.relevant_columns.copy()
         result.remove(ContrastivePreprocessorUnknownClusters.CLUSTER_ID_COLUMN_NAME)
+        if self.config.non_textual_columns is not None and len(self.config.non_textual_columns) > 0:
+            result = list(set(result) - set(self.config.non_textual_columns))
         return result
 
     def preprocess_one(self, df: DataFrame) -> DataFrame:
@@ -70,14 +76,16 @@ class ContrastivePreprocessor(TransformerLMBasePreprocessor[ContrastivePreproces
         return result
 
     def separate_sources_for_one_as_tuple(self, df: DataFrame) -> Tuple[DataFrame, DataFrame]:
-        df = df.sample(frac=self.config.pretrain_sample)
-
         columns_for_instance = ['text', ContrastivePreprocessorUnknownClusters.CLUSTER_ID_COLUMN_NAME]
         left_instance_columns = {f'left_{c}': c for c in columns_for_instance}
         right_instance_columns = {f'right_{c}': c for c in columns_for_instance}
 
-        left_instances_df = df[left_instance_columns.keys()].rename(columns=left_instance_columns)
-        right_instances_df = df[right_instance_columns.keys()].rename(columns=right_instance_columns)
+        # add non-textual columns as well
+        # this assumes that non-textual columns are not in the for left_{c} or right_{c}
+        left_instances_df = df[list(left_instance_columns.keys()) + self.config.non_textual_columns]\
+            .rename(columns=left_instance_columns)
+        right_instances_df = df[list(right_instance_columns.keys()) + self.config.non_textual_columns]\
+            .rename(columns=right_instance_columns)
 
         left_instances_df = left_instances_df[
             left_instances_df[ContrastivePreprocessorUnknownClusters.CLUSTER_ID_COLUMN_NAME].notnull()]
@@ -88,9 +96,28 @@ class ContrastivePreprocessor(TransformerLMBasePreprocessor[ContrastivePreproces
 
         return left_instances_df, right_instances_df
 
+    @staticmethod
+    def __perform_weighted_sampling(df: DataFrame, frac: float) -> DataFrame:
+        # offers belonging to clusters should have a lower chance to be sampled
+        # this way the head added in the 2nd phase learns how to accommodate offers outside the pre-training set
+        df['weights'] = df.groupby('cluster_id')['cluster_id'].transform('count')
+        df['weights'] = 1 / df['weights']
+        df['weights'] = df['weights'] / df['weights'].sum()
+
+        result = df.sample(frac=frac, weights=df['weights'])
+        result.drop('weights', axis=1, inplace=True)
+
+        return result
+
     def __separate_sources_for_one(self, df: DataFrame) -> DataFrame:
         left_instances_df, right_instances_df = self.separate_sources_for_one_as_tuple(df)
-        return pd.concat((left_instances_df, right_instances_df))
+        if self.config.pretrain_right_sample is not None:
+            right_instances_df = self.__perform_weighted_sampling(right_instances_df, self.config.pretrain_right_sample)
+
+        result = pd.concat((left_instances_df, right_instances_df))
+        result = self.__perform_weighted_sampling(result, self.config.pretrain_sample)
+
+        return result
 
 
 class ContrastivePreprocessorUnknownClusters(ContrastivePreprocessor):
@@ -232,8 +259,7 @@ class ContrastivePreprocessorUnknownClusters(ContrastivePreprocessor):
 
 
 class ContrastivePreprocessorKnownClusters(ContrastivePreprocessor):
-    @staticmethod
-    def extract_intermediately_relevant_columns(df) -> DataFrame:
+    def extract_intermediately_relevant_columns(self, df) -> DataFrame:
         """
         Need to override this in order to include cluster columns
         :param df:

@@ -24,6 +24,7 @@ class BasePreprocConfig(BaseModel):
     target_location: str = None
     split_files: Dict[str, str]
     relevant_columns: List[str]
+    non_textual_columns: Optional[List[str]]
     rename_columns: Optional[Dict[str, str]]
 
 
@@ -48,4 +49,5 @@ class ContrastivePreprocessConfig(BasePreprocConfig):
 
     pretrain_used_datasets: List[str]
     pretrain_sample: float
+    pretrain_right_sample: Optional[float]
     column_lengths: Dict[str, int]
