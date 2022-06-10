@@ -260,13 +260,13 @@ def launch_secondary_sequence(arguments: ExperimentsArgumentParser):
     run_experiments(arguments=arguments, experiments=experiments, experiment_function=run_single_supcon_experiment)
 
     ditto_proprietary = [
-        {
-            "stand_path": os.path.join('configs', 'stands_tasks', 'proprietary_scarce.json'),
-            "proc_path": os.path.join('configs', 'model_specific', 'ditto', 'proprietary_scarce.json'),
-            "predictor_path": os.path.join('configs', 'model_train', 'ditto',
-                                           'ditto_proprietary-scarce.json'),
-            "standardizer": "csv_no_split"
-        }
+        # {
+        #     "stand_path": os.path.join('configs', 'stands_tasks', 'proprietary_scarce.json'),
+        #     "proc_path": os.path.join('configs', 'model_specific', 'ditto', 'proprietary_scarce.json'),
+        #     "predictor_path": os.path.join('configs', 'model_train', 'ditto',
+        #                                    'ditto_proprietary-scarce.json'),
+        #     "standardizer": "csv_no_split"
+        # }
     ]
 
     run_experiments(arguments=arguments, experiments=ditto_proprietary, experiment_function=run_single_ditto_experiment)
