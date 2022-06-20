@@ -270,7 +270,7 @@ class TransformerLMPredictor(BasePredictor, ABC):
     def test(self, test_set: DataFrame) -> float:
         test_dataset = self.instantiate_classifier_dataset(test_set)
         predict_results = self.trainer.predict(test_dataset)
-
+        print(predict_results.metrics)
         f1 = predict_results.metrics['test_f1']
         if wandb.run:
             wandb.log({'f1': f1})
