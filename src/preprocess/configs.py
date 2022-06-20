@@ -24,7 +24,7 @@ class BasePreprocConfig(BaseModel):
     target_location: str = None
     split_files: Dict[str, str]
     relevant_columns: List[str]
-    non_textual_columns: Optional[List[str]]
+    non_textual_columns: List[str] = []
     rename_columns: Optional[Dict[str, str]]
 
 
